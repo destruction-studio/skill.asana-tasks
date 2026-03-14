@@ -1,6 +1,6 @@
 ---
 name: asana-tasks
-description: Manage Asana tasks via CLI. Auto-activates when .claude-team/asana.json exists in the project. Handles onboarding, task listing, assignment, and workflow.
+description: Use when the user asks to check tasks, pick a task, mark tasks done, manage the task board, or asks "what should we work on?" / "что по задачам?" at the start of a session. Also handles Asana onboarding, project init, and task assignment.
 user-invocable: true
 ---
 
