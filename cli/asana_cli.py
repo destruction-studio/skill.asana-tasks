@@ -570,27 +570,29 @@ def cmd_update():
     print(f"Current version: {VERSION}")
     print("Checking for updates...")
 
-    # Fetch remote version
+    # Fetch remote version (lightweight — just VERSION file)
+    try:
+        req = urllib.request.Request(f"{repo_url}/VERSION")
+        with urllib.request.urlopen(req) as resp:
+            remote_version = resp.read().decode().strip()
+    except Exception as e:
+        print(f"Failed to check version: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    if remote_version == VERSION:
+        print(f"Already up to date (v{VERSION})")
+        return
+
+    print(f"Updating: v{VERSION} → v{remote_version}")
+
+    # Download new CLI
     try:
         req = urllib.request.Request(f"{repo_url}/cli/asana_cli.py")
         with urllib.request.urlopen(req) as resp:
             remote_cli = resp.read().decode()
     except Exception as e:
-        print(f"Failed to fetch update: {e}", file=sys.stderr)
+        print(f"Failed to download CLI: {e}", file=sys.stderr)
         sys.exit(1)
-
-    # Extract remote version
-    remote_version = None
-    for line in remote_cli.split("\n"):
-        if line.startswith("VERSION"):
-            remote_version = line.split('"')[1]
-            break
-
-    if remote_version and remote_version == VERSION:
-        print(f"Already up to date (v{VERSION})")
-        return
-
-    print(f"Updating: v{VERSION} → v{remote_version}")
 
     # Update CLI
     cli_dest.parent.mkdir(parents=True, exist_ok=True)
