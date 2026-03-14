@@ -24,8 +24,21 @@ Usage:
   asana-cli projects [ws_gid]     List projects in workspace
   asana-cli status                Check configuration status
   asana-cli assign <id> <user>    Assign task (use "me" for self)
+  asana-cli unassign <id>         Remove assignee
   asana-cli watch <id> [user]     Add follower/watcher ("me" default)
   asana-cli unwatch <id> [user]   Remove follower/watcher
+  asana-cli due <id> <date>       Set due date (YYYY-MM-DD or "clear")
+  asana-cli comment <id> <text>   Add comment to task
+  asana-cli subtasks <id>         List subtasks
+  asana-cli subtask <id> <name>   Create subtask
+  asana-cli tags <id>             List tags on task
+  asana-cli tag <id> <name>       Add tag (creates if not found)
+  asana-cli untag <id> <name>     Remove tag
+  asana-cli reopen <id>           Reopen completed task
+  asana-cli description <id> <text>  Update task description
+  asana-cli history <id>          Show task activity
+  asana-cli members               List project members
+  asana-cli board                 Compact board view
   asana-cli update                Update CLI + skill
 """
 
@@ -36,7 +49,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.3.4"
+VERSION = "0.4.0"
 BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -236,7 +249,7 @@ def cmd_move(token, config, task_id, section_name):
     print(f"Task {task_id} moved to \"{section['name']}\"")
 
 
-def cmd_create(token, config, name, section_name=None, notes=None):
+def cmd_create(token, config, name, section_name=None, notes=None, due=None):
     project_id = config["projectId"]
     sections = get_sections(token, project_id)
 
@@ -257,6 +270,8 @@ def cmd_create(token, config, name, section_name=None, notes=None):
     }
     if notes:
         body["data"]["notes"] = notes
+    if due:
+        body["data"]["due_on"] = due
     if section_gid:
         body["data"]["memberships"] = [{"project": project_id, "section": section_gid}]
 
@@ -461,104 +476,201 @@ def cmd_status():
             print("Rules: NOT FOUND (.claude-team/RULES.md) — using defaults")
 
 
-def cmd_assign(token, task_id, user_query):
-    """Assign task to a user. Use 'me' for self, or name/email to search."""
+def resolve_user(token, config, user_query):
+    """Resolve user by 'me' or name/email search. Returns {gid, name}."""
     if user_query.lower() == "me":
-        me = get_me(token)
-        assignee_gid = me["gid"]
-        assignee_name = me["name"]
-    else:
-        # Search workspace users
-        config = load_config()
-        workspace_id = config.get("workspaceId")
-        if not workspace_id:
-            print("workspaceId not found in .claude-team/asana.json", file=sys.stderr)
-            sys.exit(1)
-        users = api(
-            "GET",
-            f"/workspaces/{workspace_id}/users?opt_fields=name,email&limit=100",
-            token,
-        )
-        lower = user_query.lower()
-        matched = [
-            u for u in users
-            if lower in u.get("name", "").lower() or lower in u.get("email", "").lower()
-        ]
-        if not matched:
-            print(f"No user matching '{user_query}'", file=sys.stderr)
-            sys.exit(1)
-        if len(matched) > 1:
-            print(f"Multiple users match '{user_query}':")
-            for u in matched:
-                print(f"  {u['gid']}  {u['name']} ({u.get('email', '-')})")
-            sys.exit(1)
-        assignee_gid = matched[0]["gid"]
-        assignee_name = matched[0]["name"]
+        return get_me(token)
+    workspace_id = config.get("workspaceId")
+    if not workspace_id:
+        print("workspaceId not found in .claude-team/asana.json", file=sys.stderr)
+        sys.exit(1)
+    users = api(
+        "GET",
+        f"/workspaces/{workspace_id}/users?opt_fields=name,email&limit=100",
+        token,
+    )
+    lower = user_query.lower()
+    matched = [
+        u for u in users
+        if lower in u.get("name", "").lower() or lower in u.get("email", "").lower()
+    ]
+    if not matched:
+        print(f"No user matching '{user_query}'", file=sys.stderr)
+        sys.exit(1)
+    if len(matched) > 1:
+        print(f"Multiple users match '{user_query}':")
+        for u in matched:
+            print(f"  {u['gid']}  {u['name']} ({u.get('email', '-')})")
+        sys.exit(1)
+    return matched[0]
 
-    api("PUT", f"/tasks/{task_id}", token, {"data": {"assignee": assignee_gid}})
-    print(f"Task {task_id} assigned to {assignee_name}")
+
+def cmd_assign(token, config, task_id, user_query):
+    user = resolve_user(token, config, user_query)
+    api("PUT", f"/tasks/{task_id}", token, {"data": {"assignee": user["gid"]}})
+    print(f"Task {task_id} assigned to {user['name']}")
+
+
+def cmd_unassign(token, task_id):
+    api("PUT", f"/tasks/{task_id}", token, {"data": {"assignee": None}})
+    print(f"Task {task_id} unassigned")
 
 
 def cmd_watch(token, config, task_id, user_query="me"):
-    """Add follower (watcher) to a task."""
-    if user_query.lower() == "me":
-        user = get_me(token)
-    else:
-        workspace_id = config.get("workspaceId")
-        users = api(
-            "GET",
-            f"/workspaces/{workspace_id}/users?opt_fields=name,email&limit=100",
-            token,
-        )
-        lower = user_query.lower()
-        matched = [
-            u for u in users
-            if lower in u.get("name", "").lower() or lower in u.get("email", "").lower()
-        ]
-        if not matched:
-            print(f"No user matching '{user_query}'", file=sys.stderr)
-            sys.exit(1)
-        if len(matched) > 1:
-            print(f"Multiple users match '{user_query}':")
-            for u in matched:
-                print(f"  {u['gid']}  {u['name']} ({u.get('email', '-')})")
-            sys.exit(1)
-        user = matched[0]
-
+    user = resolve_user(token, config, user_query)
     api("POST", f"/tasks/{task_id}/addFollowers", token,
         {"data": {"followers": [user["gid"]]}})
     print(f"Added {user['name']} as watcher on task {task_id}")
 
 
 def cmd_unwatch(token, config, task_id, user_query="me"):
-    """Remove follower (watcher) from a task."""
-    if user_query.lower() == "me":
-        user = get_me(token)
-    else:
-        workspace_id = config.get("workspaceId")
-        users = api(
-            "GET",
-            f"/workspaces/{workspace_id}/users?opt_fields=name,email&limit=100",
-            token,
-        )
-        lower = user_query.lower()
-        matched = [
-            u for u in users
-            if lower in u.get("name", "").lower() or lower in u.get("email", "").lower()
-        ]
-        if not matched:
-            print(f"No user matching '{user_query}'", file=sys.stderr)
-            sys.exit(1)
-        if len(matched) > 1:
-            print(f"Multiple users match '{user_query}':")
-            for u in matched:
-                print(f"  {u['gid']}  {u['name']} ({u.get('email', '-')})")
-            sys.exit(1)
-        user = matched[0]
-
+    user = resolve_user(token, config, user_query)
     api("POST", f"/tasks/{task_id}/removeFollowers", token,
         {"data": {"followers": [user["gid"]]}})
     print(f"Removed {user['name']} as watcher from task {task_id}")
+
+
+def cmd_due(token, task_id, date_str):
+    due = None if date_str.lower() == "clear" else date_str
+    api("PUT", f"/tasks/{task_id}", token, {"data": {"due_on": due}})
+    if due:
+        print(f"Task {task_id} due date set to {due}")
+    else:
+        print(f"Task {task_id} due date cleared")
+
+
+def cmd_comment(token, task_id, text):
+    api("POST", f"/tasks/{task_id}/stories", token,
+        {"data": {"text": text}})
+    print(f"Comment added to task {task_id}")
+
+
+def cmd_subtasks(token, task_id):
+    fields = "name,completed,assignee.name,due_on"
+    subtasks = api("GET", f"/tasks/{task_id}/subtasks?opt_fields={fields}", token)
+    if not subtasks:
+        print("No subtasks")
+        return
+    for t in subtasks:
+        done = "✓" if t.get("completed") else " "
+        assignee = t.get("assignee")
+        extra = f"  @{assignee['name']}" if assignee else ""
+        if t.get("due_on"):
+            extra += f"  due:{t['due_on']}"
+        print(f"[{done}] {t['gid']}  {t['name']}{extra}")
+    print(f"\nTotal: {len(subtasks)} subtasks")
+
+
+def cmd_subtask_create(token, parent_id, name):
+    task = api("POST", f"/tasks/{parent_id}/subtasks", token,
+               {"data": {"name": name}})
+    print(f"Created subtask: {task['gid']}  {task['name']}")
+
+
+def cmd_tags_list(token, task_id):
+    fields = "tags.name"
+    t = api("GET", f"/tasks/{task_id}?opt_fields={fields}", token)
+    tags = t.get("tags", [])
+    if not tags:
+        print("No tags")
+        return
+    for tag in tags:
+        print(f"  {tag['gid']}  {tag['name']}")
+
+
+def cmd_tag_add(token, config, task_id, tag_name):
+    workspace_id = config.get("workspaceId")
+    # Search for existing tag
+    tags = api("GET",
+               f"/workspaces/{workspace_id}/tags?opt_fields=name&limit=100",
+               token)
+    lower = tag_name.lower()
+    found = next((t for t in tags if t["name"].lower() == lower), None)
+    if not found:
+        found = api("POST", "/tags", token,
+                     {"data": {"name": tag_name, "workspace": workspace_id}})
+        print(f"Created tag: {found['name']}")
+    api("POST", f"/tasks/{task_id}/addTag", token,
+        {"data": {"tag": found["gid"]}})
+    print(f"Tag '{found['name']}' added to task {task_id}")
+
+
+def cmd_tag_remove(token, task_id, tag_name):
+    fields = "tags.name"
+    t = api("GET", f"/tasks/{task_id}?opt_fields={fields}", token)
+    lower = tag_name.lower()
+    found = next((tg for tg in t.get("tags", []) if tg["name"].lower() == lower), None)
+    if not found:
+        print(f"Tag '{tag_name}' not found on this task", file=sys.stderr)
+        sys.exit(1)
+    api("POST", f"/tasks/{task_id}/removeTag", token,
+        {"data": {"tag": found["gid"]}})
+    print(f"Tag '{found['name']}' removed from task {task_id}")
+
+
+def cmd_reopen(token, config, task_id):
+    api("PUT", f"/tasks/{task_id}", token, {"data": {"completed": False}})
+    print(f"Task {task_id} reopened")
+
+
+def cmd_description(token, task_id, text):
+    api("PUT", f"/tasks/{task_id}", token, {"data": {"notes": text}})
+    print(f"Task {task_id} description updated")
+
+
+def cmd_history(token, task_id):
+    stories = api("GET",
+                   f"/tasks/{task_id}/stories?opt_fields=created_by.name,created_at,text,type,resource_subtype",
+                   token)
+    if not stories:
+        print("No activity")
+        return
+    for s in stories:
+        date = (s.get("created_at") or "")[:16].replace("T", " ")
+        who = s.get("created_by", {}).get("name", "?")
+        text = (s.get("text") or "").replace("\n", " ")
+        if len(text) > 120:
+            text = text[:117] + "..."
+        print(f"  {date}  {who}: {text}")
+
+
+def cmd_members(token, config):
+    project_id = config["projectId"]
+    members = api("GET",
+                   f"/projects/{project_id}/members?opt_fields=name,email",
+                   token)
+    if not members:
+        print("No members")
+        return
+    for m in members:
+        print(f"  {m['gid']}  {m['name']} ({m.get('email', '-')})")
+    print(f"\nTotal: {len(members)} members")
+
+
+def cmd_board(token, config):
+    project_id = config["projectId"]
+    sections = get_sections(token, project_id)
+    fields = "name,completed,assignee.name,due_on"
+    tasks = api("GET", f"/projects/{project_id}/tasks?opt_fields={fields},memberships.section.gid&limit=100", token)
+
+    for sec in sections:
+        sec_tasks = [t for t in tasks
+                     if any(m.get("section", {}).get("gid") == sec["gid"]
+                            for m in t.get("memberships", []))]
+        if not sec_tasks:
+            continue
+        print(f"\n┌─ {sec['name']} ({len(sec_tasks)}) ─")
+        for t in sec_tasks:
+            done = "✓" if t.get("completed") else " "
+            parts = []
+            assignee = t.get("assignee")
+            if assignee:
+                parts.append(f"@{assignee['name']}")
+            if t.get("due_on"):
+                parts.append(t["due_on"])
+            extra = f"  ({', '.join(parts)})" if parts else ""
+            print(f"│ [{done}] {t['name']}{extra}")
+        print("└─")
 
 
 def cmd_update():
@@ -728,11 +840,12 @@ def main():
         cmd_move(token, config, args[1], " ".join(args[2:]))
     elif cmd in ("create", "add"):
         if len(args) < 2:
-            print("Usage: asana-cli create <name> [--section X] [--notes X]", file=sys.stderr)
+            print("Usage: asana-cli create <name> [--section X] [--notes X] [--due X]", file=sys.stderr)
             sys.exit(1)
         name_parts = []
         section = None
         notes = None
+        due = None
         i = 1
         while i < len(args):
             if args[i] in ("--section", "-s"):
@@ -741,10 +854,13 @@ def main():
             elif args[i] in ("--notes", "-n"):
                 i += 1
                 notes = args[i] if i < len(args) else None
+            elif args[i] in ("--due", "-d"):
+                i += 1
+                due = args[i] if i < len(args) else None
             else:
                 name_parts.append(args[i])
             i += 1
-        cmd_create(token, config, " ".join(name_parts), section, notes)
+        cmd_create(token, config, " ".join(name_parts), section, notes, due)
     elif cmd == "sections":
         cmd_sections(token, config)
     elif cmd in ("search", "find"):
@@ -756,7 +872,12 @@ def main():
         if len(args) < 3:
             print("Usage: asana-cli assign <task_id> <user|me>", file=sys.stderr)
             sys.exit(1)
-        cmd_assign(token, args[1], " ".join(args[2:]))
+        cmd_assign(token, config, args[1], " ".join(args[2:]))
+    elif cmd == "unassign":
+        if len(args) < 2:
+            print("Usage: asana-cli unassign <task_id>", file=sys.stderr)
+            sys.exit(1)
+        cmd_unassign(token, args[1])
     elif cmd == "watch":
         if len(args) < 2:
             print("Usage: asana-cli watch <task_id> [user|me]", file=sys.stderr)
@@ -767,6 +888,60 @@ def main():
             print("Usage: asana-cli unwatch <task_id> [user|me]", file=sys.stderr)
             sys.exit(1)
         cmd_unwatch(token, config, args[1], args[2] if len(args) > 2 else "me")
+    elif cmd == "due":
+        if len(args) < 3:
+            print("Usage: asana-cli due <task_id> <YYYY-MM-DD|clear>", file=sys.stderr)
+            sys.exit(1)
+        cmd_due(token, args[1], args[2])
+    elif cmd == "comment":
+        if len(args) < 3:
+            print("Usage: asana-cli comment <task_id> <text>", file=sys.stderr)
+            sys.exit(1)
+        cmd_comment(token, args[1], " ".join(args[2:]))
+    elif cmd == "subtasks":
+        if len(args) < 2:
+            print("Usage: asana-cli subtasks <task_id>", file=sys.stderr)
+            sys.exit(1)
+        cmd_subtasks(token, args[1])
+    elif cmd == "subtask":
+        if len(args) < 3:
+            print("Usage: asana-cli subtask <parent_id> <name>", file=sys.stderr)
+            sys.exit(1)
+        cmd_subtask_create(token, args[1], " ".join(args[2:]))
+    elif cmd == "tags":
+        if len(args) < 2:
+            print("Usage: asana-cli tags <task_id>", file=sys.stderr)
+            sys.exit(1)
+        cmd_tags_list(token, args[1])
+    elif cmd == "tag":
+        if len(args) < 3:
+            print("Usage: asana-cli tag <task_id> <tag_name>", file=sys.stderr)
+            sys.exit(1)
+        cmd_tag_add(token, config, args[1], " ".join(args[2:]))
+    elif cmd == "untag":
+        if len(args) < 3:
+            print("Usage: asana-cli untag <task_id> <tag_name>", file=sys.stderr)
+            sys.exit(1)
+        cmd_tag_remove(token, args[1], " ".join(args[2:]))
+    elif cmd == "reopen":
+        if len(args) < 2:
+            print("Usage: asana-cli reopen <task_id>", file=sys.stderr)
+            sys.exit(1)
+        cmd_reopen(token, config, args[1])
+    elif cmd == "description":
+        if len(args) < 3:
+            print("Usage: asana-cli description <task_id> <text>", file=sys.stderr)
+            sys.exit(1)
+        cmd_description(token, args[1], " ".join(args[2:]))
+    elif cmd == "history":
+        if len(args) < 2:
+            print("Usage: asana-cli history <task_id>", file=sys.stderr)
+            sys.exit(1)
+        cmd_history(token, args[1])
+    elif cmd == "members":
+        cmd_members(token, config)
+    elif cmd == "board":
+        cmd_board(token, config)
     else:
         print(f"Unknown command: {cmd}", file=sys.stderr)
         print("Run 'asana-cli help' for usage.", file=sys.stderr)

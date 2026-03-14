@@ -136,8 +136,21 @@ asana-cli sections              List sections
 asana-cli search <query>        Search by name
 asana-cli my                    My assigned tasks
 asana-cli assign <id> <user>    Assign task ("me" for self, or name/email)
+asana-cli unassign <id>         Remove assignee
 asana-cli watch <id> [user]     Add watcher ("me" by default)
 asana-cli unwatch <id> [user]   Remove watcher
+asana-cli due <id> <date>       Set due date (YYYY-MM-DD or "clear")
+asana-cli comment <id> <text>   Add comment to task
+asana-cli subtasks <id>         List subtasks
+asana-cli subtask <id> <name>   Create subtask
+asana-cli tags <id>             List tags on task
+asana-cli tag <id> <name>       Add tag (creates if not found)
+asana-cli untag <id> <name>     Remove tag
+asana-cli reopen <id>           Reopen completed task
+asana-cli description <id> <t>  Update task description
+asana-cli history <id>          Show task activity
+asana-cli members               List project members
+asana-cli board                 Compact board view
 asana-cli whoami                Current user info
 asana-cli workspaces            List available workspaces
 asana-cli projects [ws_gid]     List projects in workspace
