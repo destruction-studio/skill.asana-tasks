@@ -23,6 +23,7 @@ Usage:
   asana-cli workspaces            List available workspaces
   asana-cli projects [ws_gid]     List projects in workspace
   asana-cli status                Check configuration status
+  asana-cli assign <id> <user>    Assign task (use "me" for self)
   asana-cli update                Update CLI + skill
 """
 
@@ -33,7 +34,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -458,10 +459,98 @@ def cmd_status():
             print("Rules: NOT FOUND (.claude-team/RULES.md) — using defaults")
 
 
+def cmd_assign(token, task_id, user_query):
+    """Assign task to a user. Use 'me' for self, or name/email to search."""
+    if user_query.lower() == "me":
+        me = get_me(token)
+        assignee_gid = me["gid"]
+        assignee_name = me["name"]
+    else:
+        # Search workspace users
+        config = load_config()
+        workspace_id = config.get("workspaceId")
+        if not workspace_id:
+            print("workspaceId not found in .claude-team/asana.json", file=sys.stderr)
+            sys.exit(1)
+        users = api(
+            "GET",
+            f"/workspaces/{workspace_id}/users?opt_fields=name,email&limit=100",
+            token,
+        )
+        lower = user_query.lower()
+        matched = [
+            u for u in users
+            if lower in u.get("name", "").lower() or lower in u.get("email", "").lower()
+        ]
+        if not matched:
+            print(f"No user matching '{user_query}'", file=sys.stderr)
+            sys.exit(1)
+        if len(matched) > 1:
+            print(f"Multiple users match '{user_query}':")
+            for u in matched:
+                print(f"  {u['gid']}  {u['name']} ({u.get('email', '-')})")
+            sys.exit(1)
+        assignee_gid = matched[0]["gid"]
+        assignee_name = matched[0]["name"]
+
+    api("PUT", f"/tasks/{task_id}", token, {"data": {"assignee": assignee_gid}})
+    print(f"Task {task_id} assigned to {assignee_name}")
+
+
 def cmd_update():
-    # TODO: pull latest from GitHub repo
+    """Update CLI and skill from GitHub."""
+    repo_url = "https://raw.githubusercontent.com/destruction-studio/skill.asana-tasks/main"
+    cli_dest = Path.home() / ".local" / "bin" / "asana-cli"
+    skill_dest = Path.home() / ".claude" / "skills" / "asana-tasks" / "SKILL.md"
+
     print(f"Current version: {VERSION}")
-    print("Update not yet implemented")
+    print("Checking for updates...")
+
+    # Fetch remote version
+    try:
+        req = urllib.request.Request(f"{repo_url}/cli/asana_cli.py")
+        with urllib.request.urlopen(req) as resp:
+            remote_cli = resp.read().decode()
+    except Exception as e:
+        print(f"Failed to fetch update: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Extract remote version
+    remote_version = None
+    for line in remote_cli.split("\n"):
+        if line.startswith("VERSION"):
+            remote_version = line.split('"')[1]
+            break
+
+    if remote_version and remote_version == VERSION:
+        print(f"Already up to date (v{VERSION})")
+        return
+
+    print(f"Updating: v{VERSION} → v{remote_version}")
+
+    # Update CLI
+    cli_dest.parent.mkdir(parents=True, exist_ok=True)
+    cli_dest.write_text(remote_cli)
+    cli_dest.chmod(0o755)
+    print(f"  CLI updated: {cli_dest}")
+
+    # Update skill
+    try:
+        req = urllib.request.Request(f"{repo_url}/skill/asana-tasks.md")
+        with urllib.request.urlopen(req) as resp:
+            remote_skill = resp.read().decode()
+        skill_dest.parent.mkdir(parents=True, exist_ok=True)
+        skill_dest.write_text(remote_skill)
+        print(f"  Skill updated: {skill_dest}")
+    except Exception as e:
+        print(f"  Skill update failed: {e}", file=sys.stderr)
+
+    # Update timestamp
+    ts_path = Path.home() / ".config" / "asana" / "last-version-check"
+    ts_path.parent.mkdir(parents=True, exist_ok=True)
+    ts_path.write_text(str(int(__import__("time").time())) + "\n")
+
+    print(f"\nDone! Restart Claude Code to pick up skill changes.")
 
 
 # --- Main ---
@@ -574,6 +663,11 @@ def main():
             print("Usage: asana-cli search <query>", file=sys.stderr)
             sys.exit(1)
         cmd_search(token, config, " ".join(args[1:]))
+    elif cmd == "assign":
+        if len(args) < 3:
+            print("Usage: asana-cli assign <task_id> <user|me>", file=sys.stderr)
+            sys.exit(1)
+        cmd_assign(token, args[1], " ".join(args[2:]))
     else:
         print(f"Unknown command: {cmd}", file=sys.stderr)
         print("Run 'asana-cli help' for usage.", file=sys.stderr)

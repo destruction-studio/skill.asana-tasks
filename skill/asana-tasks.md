@@ -135,6 +135,7 @@ asana-cli create <name> [opts]  Create task (--section, --notes)
 asana-cli sections              List sections
 asana-cli search <query>        Search by name
 asana-cli my                    My assigned tasks
+asana-cli assign <id> <user>    Assign task ("me" for self, or name/email)
 asana-cli whoami                Current user info
 asana-cli workspaces            List available workspaces
 asana-cli projects [ws_gid]     List projects in workspace
