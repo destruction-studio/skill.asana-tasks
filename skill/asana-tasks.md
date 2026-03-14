@@ -39,19 +39,34 @@ If `~/.config/asana/token` does not exist and `ASANA_TOKEN` is not set → **Aut
 
 ### 3. Project not initialized?
 
-If `.claude-team/asana.json` does not exist → **Init flow**:
+If `.claude-team/asana.json` does not exist → **Init flow**.
 
-1. Run `asana-cli init` — this lists available workspaces and projects.
-2. The output includes a JSON list of projects. Present them to the user as a numbered list.
-3. Ask the user to pick a project by number.
-4. Run `asana-cli init-write <workspace_gid> <project_gid>` — creates `.claude-team/asana.json`.
-5. Ask the user if they want to configure prefixes (e.g. `[AN]`, `[iOS]`, `[Backend]`).
-   - If yes → read the created `asana.json`, add `"prefixes": [...]`, write it back.
-6. Ask the user if they want to configure phase tags.
-   - If yes → add `"phases": [...]` to `asana.json`.
-7. Ask if they want to create `.claude-team/RULES.md` with workflow rules.
-   - If yes → ask about their workflow preferences and generate the file.
-8. Tell the user to commit `.claude-team/` to their repo.
+**IMPORTANT: You MUST complete ALL steps below before moving to work mode. Do NOT skip ahead to listing tasks.**
+
+**Step 3a.** Run `asana-cli init` — lists available workspaces and projects.
+
+**Step 3b.** Present projects as a numbered list. Ask the user to pick a project by number.
+
+**Step 3c.** Run `asana-cli init-write <workspace_gid> <project_gid>` — creates `.claude-team/asana.json`.
+
+**Step 3d. STOP and ask about prefixes.** Ask:
+> "Do you want to configure task prefixes? These are tags like `[AN]`, `[iOS]`, `[Backend]` used in task names. List the ones you want, or skip."
+
+If yes → read `.claude-team/asana.json`, add `"prefixes": [...]`, write it back.
+
+**Step 3e. STOP and ask about phase tags.** Ask:
+> "Do you want to configure phase tags? These group tasks by roadmap phase (e.g. `P0: Deploy`, `P1: MVP`). List the ones you want, or skip."
+
+If yes → read `.claude-team/asana.json`, add `"phases": [...]`, write it back.
+
+**Step 3f. STOP and ask about workflow rules.** Ask:
+> "Do you want to create workflow rules (.claude-team/RULES.md)? This defines how tasks are prioritized, what to show when you ask 'what to work on?', naming conventions, etc. I can generate a template — want to configure it?"
+
+If yes → ask about their preferences (priority order, limits, naming) and generate `.claude-team/RULES.md`.
+
+**Step 3g.** Tell the user: "Setup complete! Commit `.claude-team/` to your repo so the team gets the same config."
+
+**Only after all steps above are done, proceed to work mode.**
 
 ### 4. Everything configured → work mode
 
