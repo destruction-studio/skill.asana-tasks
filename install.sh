@@ -5,7 +5,9 @@ REPO_URL="https://raw.githubusercontent.com/destruction-studio/skill.asana-tasks
 CLI_DEST="$HOME/.local/bin/asana-cli"
 SKILL_DEST="$HOME/.claude/skills/asana-tasks"
 
-echo "Installing skill.asana-tasks..."
+# Fetch version
+VERSION=$(curl -fsSL "$REPO_URL/VERSION")
+echo "Installing skill.asana-tasks v${VERSION}..."
 echo ""
 
 # Install CLI
