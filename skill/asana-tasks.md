@@ -64,7 +64,20 @@ If yes → read `.claude-team/asana.json`, add `"phases": [...]`, write it back.
 
 If yes → ask about their preferences (priority order, limits, naming) and generate `.claude-team/RULES.md`.
 
-**Step 3g.** Tell the user: "Setup complete! Commit `.claude-team/` to your repo so the team gets the same config."
+**Step 3g. STOP and ask about CLAUDE.md.** Ask:
+> "Want me to add an asana-tasks section to your project's CLAUDE.md? This helps Claude automatically offer to check/close tasks during work."
+
+If yes → append to CLAUDE.md (create if missing):
+
+```markdown
+## Tasks
+
+- Task management: Asana — use `/asana-tasks` skill or ask "what to work on?"
+- After completing work on a task, offer to mark it done via asana-tasks
+- When creating new work items, offer to create an Asana task
+```
+
+**Step 3h.** Tell the user: "Setup complete! Commit `.claude-team/` (and CLAUDE.md if updated) to your repo so the team gets the same config."
 
 **Only after all steps above are done, proceed to work mode.**
 
