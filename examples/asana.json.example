@@ -1,0 +1,14 @@
+{
+    "projectId": "YOUR_ASANA_PROJECT_GID",
+    "workspaceId": "YOUR_ASANA_WORKSPACE_GID",
+    "prefixes": ["AN", "iOS", "Backend", "Admin", "Infra", "Global"],
+    "sections": {
+        "backlog": "Backlog",
+        "todo": "TODO",
+        "inProgress": "In Progress",
+        "review": "Review / Test",
+        "done": "Done",
+        "bugs": "Bugs"
+    },
+    "phases": []
+}

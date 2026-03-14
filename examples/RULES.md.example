@@ -1,0 +1,27 @@
+# Asana Workflow Rules
+
+## When developer asks "what to work on?"
+
+1. Show Review / Test tasks first (awaiting deploy/testing)
+2. Show TODO tasks (taken into work, not started)
+3. Show In Progress tasks for current user
+4. Ask what to pick
+
+## Task lifecycle
+
+- `start <id>` — auto-assign to current user, move to In Progress
+- `done <id>` — mark completed, move to Done
+
+## Priorities
+
+- Bugs > Review/Test > TODO > Backlog
+
+## Limits
+
+- Max 2 tasks In Progress per person
+- Before taking a new task — finish or return current ones
+
+## Naming
+
+- Always use prefix: `[Backend] Task name`
+- Available prefixes are defined in asana.json
