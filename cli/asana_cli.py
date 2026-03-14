@@ -8,6 +8,8 @@ Reads config from:
   3. ASANA_TOKEN env var       (fallback)
 
 Usage:
+  asana-cli auth                  Save personal access token
+  asana-cli init                  Initialize project (create .claude-team/asana.json)
   asana-cli list [section]        List tasks (filter by section)
   asana-cli show <id>             Task details
   asana-cli done <id>             Mark completed + move to Done
@@ -18,6 +20,9 @@ Usage:
   asana-cli search <query>        Search by name
   asana-cli my                    My assigned tasks
   asana-cli whoami                Show current user
+  asana-cli workspaces            List available workspaces
+  asana-cli projects [ws_gid]     List projects in workspace
+  asana-cli status                Check configuration status
   asana-cli update                Update CLI + skill
 """
 
@@ -288,6 +293,171 @@ def cmd_whoami(token):
     print(f"GID: {me['gid']}")
 
 
+def cmd_auth(token_value=None):
+    """Save token to ~/.config/asana/token."""
+    token_dir = Path.home() / ".config" / "asana"
+    token_path = token_dir / "token"
+
+    if not token_value:
+        print("No token provided.")
+        print("Usage: asana-cli auth <token>")
+        print("")
+        print("To create a token:")
+        print("  1. Go to https://app.asana.com/0/my-apps")
+        print("  2. Click 'Create new token'")
+        print("  3. Copy the token")
+        print("  4. Run: asana-cli auth <your-token>")
+        sys.exit(1)
+
+    token_dir.mkdir(parents=True, exist_ok=True)
+    token_path.write_text(token_value.strip() + "\n")
+    try:
+        token_path.chmod(0o600)
+    except OSError:
+        pass
+
+    # Verify token works
+    me = get_me(token_value.strip())
+    print(f"Token saved to {token_path}")
+    print(f"Authenticated as: {me['name']} ({me.get('email', '-')})")
+
+
+def cmd_workspaces(token):
+    """List workspaces available to current user."""
+    workspaces = api("GET", "/workspaces?opt_fields=name,gid", token)
+    for ws in workspaces:
+        print(f"{ws['gid']}  {ws['name']}")
+    return workspaces
+
+
+def cmd_projects(token, workspace_gid=None):
+    """List projects in workspace."""
+    if not workspace_gid:
+        workspaces = api("GET", "/workspaces?opt_fields=name,gid", token)
+        if len(workspaces) == 1:
+            workspace_gid = workspaces[0]["gid"]
+            print(f"Workspace: {workspaces[0]['name']}\n")
+        else:
+            print("Multiple workspaces found. Specify one:")
+            for ws in workspaces:
+                print(f"  {ws['gid']}  {ws['name']}")
+            print("\nUsage: asana-cli projects <workspace_gid>")
+            return []
+
+    projects = api(
+        "GET",
+        f"/workspaces/{workspace_gid}/projects?opt_fields=name,gid,archived&limit=100",
+        token,
+    )
+    active = [p for p in projects if not p.get("archived")]
+    for p in active:
+        print(f"{p['gid']}  {p['name']}")
+    print(f"\nTotal: {len(active)} projects")
+    return active
+
+
+def cmd_init(token):
+    """Initialize .claude-team/asana.json in current directory."""
+    config_dir = Path.cwd() / ".claude-team"
+    config_path = config_dir / "asana.json"
+
+    if config_path.exists():
+        print(f"Already initialized: {config_path}")
+        with open(config_path) as f:
+            config = json.load(f)
+        print(json.dumps(config, indent=2))
+        return
+
+    # Get workspaces
+    workspaces = api("GET", "/workspaces?opt_fields=name,gid", token)
+
+    if len(workspaces) == 1:
+        ws = workspaces[0]
+        print(f"Workspace: {ws['name']} ({ws['gid']})")
+    else:
+        print("Available workspaces:")
+        for ws in workspaces:
+            print(f"  {ws['gid']}  {ws['name']}")
+        print("\nMultiple workspaces found. Use 'asana-cli projects <ws_gid>' to browse,")
+        print("then create .claude-team/asana.json manually.")
+        return
+
+    # List projects
+    projects = api(
+        "GET",
+        f"/workspaces/{ws['gid']}/projects?opt_fields=name,gid,archived&limit=100",
+        token,
+    )
+    active = [p for p in projects if not p.get("archived")]
+    print(f"\nAvailable projects ({len(active)}):")
+    for i, p in enumerate(active, 1):
+        print(f"  {i}. {p['name']}  ({p['gid']})")
+
+    print(f"\nTo complete init, provide the project number or GID.")
+    print("The skill will handle the interactive selection.")
+
+    # Output structured data for the skill to parse
+    print("\n---PROJECTS_JSON---")
+    print(json.dumps([{"gid": p["gid"], "name": p["name"]} for p in active]))
+    print(f"---WORKSPACE_GID---")
+    print(ws["gid"])
+
+
+def cmd_init_write(workspace_gid, project_gid):
+    """Write .claude-team/asana.json with given IDs."""
+    config_dir = Path.cwd() / ".claude-team"
+    config_path = config_dir / "asana.json"
+
+    config = {
+        "projectId": project_gid,
+        "workspaceId": workspace_gid,
+    }
+
+    config_dir.mkdir(parents=True, exist_ok=True)
+    with open(config_path, "w") as f:
+        json.dump(config, f, indent=2)
+        f.write("\n")
+
+    print(f"Created {config_path}")
+    print(json.dumps(config, indent=2))
+
+
+def cmd_status():
+    """Check configuration status."""
+    # Token
+    token = load_token()
+    if token:
+        try:
+            me = get_me(token)
+            print(f"Token: OK ({me['name']}, {me.get('email', '-')})")
+        except SystemExit:
+            print("Token: INVALID (API error)")
+            token = None
+    else:
+        print("Token: NOT FOUND")
+        print("  Run: asana-cli auth <token>")
+
+    # Project config
+    root, config_path = find_project_root()
+    if config_path:
+        with open(config_path) as f:
+            config = json.load(f)
+        print(f"Config: {config_path}")
+        print(f"  projectId: {config.get('projectId', '-')}")
+        print(f"  workspaceId: {config.get('workspaceId', '-')}")
+    else:
+        print("Config: NOT FOUND (.claude-team/asana.json)")
+        print("  Run: asana-cli init")
+
+    # Rules
+    if root:
+        rules_path = root / ".claude-team" / "RULES.md"
+        if rules_path.exists():
+            print(f"Rules: {rules_path}")
+        else:
+            print("Rules: NOT FOUND (.claude-team/RULES.md) — using defaults")
+
+
 def cmd_update():
     # TODO: pull latest from GitHub repo
     print(f"Current version: {VERSION}")
@@ -311,20 +481,45 @@ def main():
         cmd_update()
         return
 
+    # auth doesn't need existing token
+    if args[0] == "auth":
+        cmd_auth(args[1] if len(args) > 1 else None)
+        return
+
+    # status works with or without token
+    if args[0] == "status":
+        cmd_status()
+        return
+
     # Load token
     token = load_token()
     if not token:
         print("No Asana token found.")
-        print("Create a Personal Access Token at: https://app.asana.com/0/my-apps")
-        print("Then save it to: ~/.config/asana/token")
+        print("Run: asana-cli auth <token>")
+        print("Get a token at: https://app.asana.com/0/my-apps")
         sys.exit(1)
 
-    # whoami doesn't need project config
+    # Commands that need token but NOT project config
     if args[0] == "whoami":
         cmd_whoami(token)
         return
+    if args[0] == "workspaces":
+        cmd_workspaces(token)
+        return
+    if args[0] == "projects":
+        cmd_projects(token, args[1] if len(args) > 1 else None)
+        return
+    if args[0] == "init":
+        cmd_init(token)
+        return
+    if args[0] == "init-write":
+        if len(args) < 3:
+            print("Usage: asana-cli init-write <workspace_gid> <project_gid>", file=sys.stderr)
+            sys.exit(1)
+        cmd_init_write(args[1], args[2])
+        return
 
-    # Load project config
+    # Commands that need project config
     config = load_config()
 
     cmd = args[0]

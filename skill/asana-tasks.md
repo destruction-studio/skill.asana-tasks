@@ -1,32 +1,32 @@
 ---
 name: asana-tasks
 description: Manage Asana tasks via CLI. Auto-activates when .claude-team/asana.json exists in the project. Handles onboarding, task listing, assignment, and workflow.
+user-invocable: true
 ---
 
 # Asana Tasks Skill
 
-## Activation check
+## Activation — check environment in order
 
-Before doing anything, verify the environment:
+Run `asana-cli status` to check everything at once. Then follow the appropriate flow:
 
-1. **Project config**: Look for `.claude-team/asana.json` in the current repo (walk up from cwd).
-   - If missing → say "This project is not connected to Asana. Add `.claude-team/asana.json` — see examples at [repo URL]." Stop.
+### 1. CLI missing?
 
-2. **Token**: Check if `~/.config/asana/token` exists or `ASANA_TOKEN` env var is set.
-   - If missing → run **Onboarding flow** (see below).
+If `asana-cli` is not found (`~/.local/bin/asana-cli`):
 
-3. **CLI**: Check if `asana-cli` is available (`which asana-cli` or `~/.local/bin/asana-cli`).
-   - If missing → install from public repo (see Install section).
+```bash
+curl -fsSL https://raw.githubusercontent.com/destruction-studio/skill.asana-tasks/main/install.sh | bash
+```
 
-4. **Version check**: If `~/.config/asana/last-version-check` is older than 24h or missing → check for updates.
+Tell the user to run this command. Do NOT run it yourself — let the user do it.
 
-## Onboarding flow (no token)
+### 2. Token missing?
 
-When token is not found:
+If `~/.config/asana/token` does not exist and `ASANA_TOKEN` is not set → **Auth flow**:
 
 1. Tell the developer:
    ```
-   Asana is not configured yet. Let's set it up — takes 30 seconds.
+   Asana token not found. Let's set it up — takes 30 seconds.
 
    1. Go to https://app.asana.com/0/my-apps
    2. Click "Create new token"
@@ -34,19 +34,30 @@ When token is not found:
    4. Copy the token and paste it here
    ```
 2. Wait for the user to paste the token.
-3. Save it:
-   ```bash
-   mkdir -p ~/.config/asana
-   echo "TOKEN_VALUE" > ~/.config/asana/token
-   chmod 600 ~/.config/asana/token
-   ```
-4. Verify: run `asana-cli whoami` — confirm name and access.
-5. Continue with the original task.
+3. Run `asana-cli auth <token>` — this saves and verifies the token.
+4. Continue.
 
-## Project rules
+### 3. Project not initialized?
 
+If `.claude-team/asana.json` does not exist → **Init flow**:
+
+1. Run `asana-cli init` — this lists available workspaces and projects.
+2. The output includes a JSON list of projects. Present them to the user as a numbered list.
+3. Ask the user to pick a project by number.
+4. Run `asana-cli init-write <workspace_gid> <project_gid>` — creates `.claude-team/asana.json`.
+5. Ask the user if they want to configure prefixes (e.g. `[AN]`, `[iOS]`, `[Backend]`).
+   - If yes → read the created `asana.json`, add `"prefixes": [...]`, write it back.
+6. Ask the user if they want to configure phase tags.
+   - If yes → add `"phases": [...]` to `asana.json`.
+7. Ask if they want to create `.claude-team/RULES.md` with workflow rules.
+   - If yes → ask about their workflow preferences and generate the file.
+8. Tell the user to commit `.claude-team/` to their repo.
+
+### 4. Everything configured → work mode
+
+Read `.claude-team/asana.json` for project config.
 If `.claude-team/RULES.md` exists, read it and follow the workflow rules defined there.
-These rules override the defaults below.
+Rules override the defaults below.
 
 ## Default workflow
 
@@ -83,6 +94,10 @@ asana-cli create "[Prefix] Task name" --notes "details"
 ## CLI reference
 
 ```
+asana-cli auth <token>          Save and verify personal access token
+asana-cli init                  List workspaces & projects for init
+asana-cli init-write <ws> <p>   Write .claude-team/asana.json
+asana-cli status                Check configuration status
 asana-cli list [section]        List tasks (filter by section)
 asana-cli show <id>             Task details
 asana-cli done <id>             Mark completed + move to Done
@@ -93,15 +108,8 @@ asana-cli sections              List sections
 asana-cli search <query>        Search by name
 asana-cli my                    My assigned tasks
 asana-cli whoami                Current user info
-```
-
-## Install
-
-If CLI is not installed:
-
-```bash
-# Download and install
-curl -fsSL https://raw.githubusercontent.com/destruction-studio/skill.asana-tasks/main/install.sh | bash
+asana-cli workspaces            List available workspaces
+asana-cli projects [ws_gid]     List projects in workspace
 ```
 
 ## Important
@@ -110,3 +118,4 @@ curl -fsSL https://raw.githubusercontent.com/destruction-studio/skill.asana-task
 - The CLI reads `.claude-team/asana.json` from the project and `~/.config/asana/token` for auth.
 - Task IDs are Asana GIDs (long numbers).
 - `start` auto-assigns the task to the current developer.
+- Do NOT create config files for the user during init — use `asana-cli init-write` instead.
