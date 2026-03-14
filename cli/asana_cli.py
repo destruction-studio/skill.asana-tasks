@@ -24,6 +24,8 @@ Usage:
   asana-cli projects [ws_gid]     List projects in workspace
   asana-cli status                Check configuration status
   asana-cli assign <id> <user>    Assign task (use "me" for self)
+  asana-cli watch <id> [user]     Add follower/watcher ("me" default)
+  asana-cli unwatch <id> [user]   Remove follower/watcher
   asana-cli update                Update CLI + skill
 """
 
@@ -34,7 +36,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -497,6 +499,68 @@ def cmd_assign(token, task_id, user_query):
     print(f"Task {task_id} assigned to {assignee_name}")
 
 
+def cmd_watch(token, config, task_id, user_query="me"):
+    """Add follower (watcher) to a task."""
+    if user_query.lower() == "me":
+        user = get_me(token)
+    else:
+        workspace_id = config.get("workspaceId")
+        users = api(
+            "GET",
+            f"/workspaces/{workspace_id}/users?opt_fields=name,email&limit=100",
+            token,
+        )
+        lower = user_query.lower()
+        matched = [
+            u for u in users
+            if lower in u.get("name", "").lower() or lower in u.get("email", "").lower()
+        ]
+        if not matched:
+            print(f"No user matching '{user_query}'", file=sys.stderr)
+            sys.exit(1)
+        if len(matched) > 1:
+            print(f"Multiple users match '{user_query}':")
+            for u in matched:
+                print(f"  {u['gid']}  {u['name']} ({u.get('email', '-')})")
+            sys.exit(1)
+        user = matched[0]
+
+    api("POST", f"/tasks/{task_id}/addFollowers", token,
+        {"data": {"followers": [user["gid"]]}})
+    print(f"Added {user['name']} as watcher on task {task_id}")
+
+
+def cmd_unwatch(token, config, task_id, user_query="me"):
+    """Remove follower (watcher) from a task."""
+    if user_query.lower() == "me":
+        user = get_me(token)
+    else:
+        workspace_id = config.get("workspaceId")
+        users = api(
+            "GET",
+            f"/workspaces/{workspace_id}/users?opt_fields=name,email&limit=100",
+            token,
+        )
+        lower = user_query.lower()
+        matched = [
+            u for u in users
+            if lower in u.get("name", "").lower() or lower in u.get("email", "").lower()
+        ]
+        if not matched:
+            print(f"No user matching '{user_query}'", file=sys.stderr)
+            sys.exit(1)
+        if len(matched) > 1:
+            print(f"Multiple users match '{user_query}':")
+            for u in matched:
+                print(f"  {u['gid']}  {u['name']} ({u.get('email', '-')})")
+            sys.exit(1)
+        user = matched[0]
+
+    api("POST", f"/tasks/{task_id}/removeFollowers", token,
+        {"data": {"followers": [user["gid"]]}})
+    print(f"Removed {user['name']} as watcher from task {task_id}")
+
+
 def cmd_update():
     """Update CLI and skill from GitHub."""
     repo_url = "https://raw.githubusercontent.com/destruction-studio/skill.asana-tasks/main"
@@ -668,6 +732,16 @@ def main():
             print("Usage: asana-cli assign <task_id> <user|me>", file=sys.stderr)
             sys.exit(1)
         cmd_assign(token, args[1], " ".join(args[2:]))
+    elif cmd == "watch":
+        if len(args) < 2:
+            print("Usage: asana-cli watch <task_id> [user|me]", file=sys.stderr)
+            sys.exit(1)
+        cmd_watch(token, config, args[1], args[2] if len(args) > 2 else "me")
+    elif cmd == "unwatch":
+        if len(args) < 2:
+            print("Usage: asana-cli unwatch <task_id> [user|me]", file=sys.stderr)
+            sys.exit(1)
+        cmd_unwatch(token, config, args[1], args[2] if len(args) > 2 else "me")
     else:
         print(f"Unknown command: {cmd}", file=sys.stderr)
         print("Run 'asana-cli help' for usage.", file=sys.stderr)
