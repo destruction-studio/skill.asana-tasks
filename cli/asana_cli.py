@@ -36,7 +36,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.3.2"
+VERSION = "0.3.3"
 BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -640,6 +640,19 @@ def main():
 
     if args[0] == "--version":
         print(VERSION)
+        # Quick update check via GitHub API
+        try:
+            req = urllib.request.Request(
+                "https://api.github.com/repos/destruction-studio/skill.asana-tasks/contents/VERSION",
+                headers={"Accept": "application/vnd.github.raw"},
+            )
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                remote = resp.read().decode().strip()
+            if remote != VERSION:
+                print(f"  Update available: v{VERSION} → v{remote}")
+                print("  Run: asana-cli update")
+        except Exception:
+            pass
         return
 
     if args[0] == "update":
