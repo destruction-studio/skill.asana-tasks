@@ -36,7 +36,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.3.1"
+VERSION = "0.3.2"
 BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -563,16 +563,20 @@ def cmd_unwatch(token, config, task_id, user_query="me"):
 
 def cmd_update():
     """Update CLI and skill from GitHub."""
-    repo_url = "https://raw.githubusercontent.com/destruction-studio/skill.asana-tasks/main"
+    api_url = "https://api.github.com/repos/destruction-studio/skill.asana-tasks/contents"
+    raw_url = "https://raw.githubusercontent.com/destruction-studio/skill.asana-tasks/main"
     cli_dest = Path.home() / ".local" / "bin" / "asana-cli"
     skill_dest = Path.home() / ".claude" / "skills" / "asana-tasks" / "SKILL.md"
 
     print(f"Current version: {VERSION}")
     print("Checking for updates...")
 
-    # Fetch remote version (lightweight — just VERSION file)
+    # Fetch remote version via GitHub API (no CDN cache)
     try:
-        req = urllib.request.Request(f"{repo_url}/VERSION")
+        req = urllib.request.Request(
+            f"{api_url}/VERSION",
+            headers={"Accept": "application/vnd.github.raw"},
+        )
         with urllib.request.urlopen(req) as resp:
             remote_version = resp.read().decode().strip()
     except Exception as e:
@@ -585,9 +589,12 @@ def cmd_update():
 
     print(f"Updating: v{VERSION} → v{remote_version}")
 
-    # Download new CLI
+    # Download new CLI via API (no cache)
     try:
-        req = urllib.request.Request(f"{repo_url}/cli/asana_cli.py")
+        req = urllib.request.Request(
+            f"{api_url}/cli/asana_cli.py",
+            headers={"Accept": "application/vnd.github.raw"},
+        )
         with urllib.request.urlopen(req) as resp:
             remote_cli = resp.read().decode()
     except Exception as e:
@@ -600,9 +607,12 @@ def cmd_update():
     cli_dest.chmod(0o755)
     print(f"  CLI updated: {cli_dest}")
 
-    # Update skill
+    # Update skill via API (no cache)
     try:
-        req = urllib.request.Request(f"{repo_url}/skill/asana-tasks.md")
+        req = urllib.request.Request(
+            f"{api_url}/skill/asana-tasks.md",
+            headers={"Accept": "application/vnd.github.raw"},
+        )
         with urllib.request.urlopen(req) as resp:
             remote_skill = resp.read().decode()
         skill_dest.parent.mkdir(parents=True, exist_ok=True)
