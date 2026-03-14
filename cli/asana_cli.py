@@ -36,7 +36,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 BASE_URL = "https://app.asana.com/api/1.0"
 
 
