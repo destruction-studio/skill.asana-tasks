@@ -54,7 +54,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.5.3"
+VERSION = "0.5.4"
 BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -254,7 +254,8 @@ def cmd_move(token, config, task_id, section_name):
     print(f"Task {task_id} moved to \"{section['name']}\"")
 
 
-def cmd_create(token, config, name, section_name=None, notes=None, due=None):
+def cmd_create(token, config, name, section_name=None, notes=None, due=None,
+               assign=None, watch=None):
     project_id = config["projectId"]
     sections = get_sections(token, project_id)
 
@@ -277,11 +278,21 @@ def cmd_create(token, config, name, section_name=None, notes=None, due=None):
         body["data"]["notes"] = notes
     if due:
         body["data"]["due_on"] = due
+    if assign:
+        user = resolve_user(token, config, assign)
+        body["data"]["assignee"] = user["gid"]
     if section_gid:
         body["data"]["memberships"] = [{"project": project_id, "section": section_gid}]
 
     task = api("POST", "/tasks", token, body)
     print(f"Created: {task['gid']}  {task['name']}")
+
+    if watch:
+        for w in watch:
+            user = resolve_user(token, config, w)
+            api("POST", f"/tasks/{task['gid']}/addFollowers", token,
+                {"data": {"followers": [user["gid"]]}})
+            print(f"  Added watcher: {user['name']}")
 
 
 def cmd_sections(token, config):
@@ -953,12 +964,14 @@ def main():
         cmd_move(token, config, args[1], " ".join(args[2:]))
     elif cmd in ("create", "add"):
         if len(args) < 2:
-            print("Usage: asana-cli create <name> [--section X] [--notes X] [--due X]", file=sys.stderr)
+            print("Usage: asana-cli create <name> [--section X] [--notes X] [--due X] [--assign X] [--watch X]", file=sys.stderr)
             sys.exit(1)
         name_parts = []
         section = None
         notes = None
         due = None
+        assign = None
+        watch = []
         i = 1
         while i < len(args):
             if args[i] in ("--section", "-s"):
@@ -970,10 +983,18 @@ def main():
             elif args[i] in ("--due", "-d"):
                 i += 1
                 due = args[i] if i < len(args) else None
+            elif args[i] in ("--assign", "-a"):
+                i += 1
+                assign = args[i] if i < len(args) else None
+            elif args[i] in ("--watch", "-w"):
+                i += 1
+                if i < len(args):
+                    watch.append(args[i])
             else:
                 name_parts.append(args[i])
             i += 1
-        cmd_create(token, config, " ".join(name_parts), section, notes, due)
+        cmd_create(token, config, " ".join(name_parts), section, notes, due,
+                   assign, watch or None)
     elif cmd == "sections":
         cmd_sections(token, config)
     elif cmd == "section-create":
