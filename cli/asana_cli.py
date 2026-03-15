@@ -39,6 +39,7 @@ Usage:
   asana-cli history <id>          Show task activity
   asana-cli members               List project members
   asana-cli board                 Compact board view
+  asana-cli project-create <name>    Create project in workspace
   asana-cli section-create <name>    Create section
   asana-cli section-rename <s> <new> Rename section
   asana-cli section-delete <section> Delete section
@@ -52,7 +53,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.5.0"
+VERSION = "0.5.1"
 BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -397,6 +398,28 @@ def cmd_projects(token, workspace_gid=None):
         print(f"{p['gid']}  {p['name']}")
     print(f"\nTotal: {len(active)} projects")
     return active
+
+
+def cmd_project_create(token, name, workspace_gid=None):
+    """Create a new project in workspace."""
+    if not workspace_gid:
+        workspaces = api("GET", "/workspaces?opt_fields=name,gid", token)
+        if len(workspaces) == 1:
+            workspace_gid = workspaces[0]["gid"]
+        else:
+            print("Multiple workspaces found. Specify one:")
+            for ws in workspaces:
+                print(f"  {ws['gid']}  {ws['name']}")
+            print("\nUsage: asana-cli project-create <name> --workspace <gid>")
+            return
+    project = api("POST", "/projects", token, {
+        "data": {
+            "name": name,
+            "workspace": workspace_gid,
+            "default_view": "board",
+        }
+    })
+    print(f"Created project: {project['gid']}  {project['name']}")
 
 
 def cmd_init(token):
@@ -823,6 +846,22 @@ def main():
         return
     if args[0] == "projects":
         cmd_projects(token, args[1] if len(args) > 1 else None)
+        return
+    if args[0] == "project-create":
+        if len(args) < 2:
+            print("Usage: asana-cli project-create <name> [--workspace <gid>]", file=sys.stderr)
+            sys.exit(1)
+        name_parts = []
+        ws_gid = None
+        i = 1
+        while i < len(args):
+            if args[i] in ("--workspace", "-w"):
+                i += 1
+                ws_gid = args[i] if i < len(args) else None
+            else:
+                name_parts.append(args[i])
+            i += 1
+        cmd_project_create(token, " ".join(name_parts), ws_gid)
         return
     if args[0] == "init":
         cmd_init(token)
