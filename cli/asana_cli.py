@@ -39,6 +39,9 @@ Usage:
   asana-cli history <id>          Show task activity
   asana-cli members               List project members
   asana-cli board                 Compact board view
+  asana-cli section-create <name>    Create section
+  asana-cli section-rename <s> <new> Rename section
+  asana-cli section-delete <section> Delete section
   asana-cli update                Update CLI + skill
 """
 
@@ -49,7 +52,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.4.0"
+VERSION = "0.5.0"
 BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -283,6 +286,28 @@ def cmd_sections(token, config):
     sections = get_sections(token, config["projectId"])
     for s in sections:
         print(f"{s['gid']}  {s['name']}")
+
+
+def cmd_section_create(token, config, name):
+    project_id = config["projectId"]
+    section = api("POST", f"/projects/{project_id}/sections", token,
+                   {"data": {"name": name}})
+    print(f"Created section: {section['gid']}  {section['name']}")
+
+
+def cmd_section_rename(token, config, section_name, new_name):
+    project_id = config["projectId"]
+    section = find_section(token, project_id, section_name)
+    api("PUT", f"/sections/{section['gid']}", token,
+        {"data": {"name": new_name}})
+    print(f"Section \"{section['name']}\" renamed to \"{new_name}\"")
+
+
+def cmd_section_delete(token, config, section_name):
+    project_id = config["projectId"]
+    section = find_section(token, project_id, section_name)
+    api("DELETE", f"/sections/{section['gid']}", token)
+    print(f"Section \"{section['name']}\" deleted")
 
 
 def cmd_search(token, config, query):
@@ -863,6 +888,21 @@ def main():
         cmd_create(token, config, " ".join(name_parts), section, notes, due)
     elif cmd == "sections":
         cmd_sections(token, config)
+    elif cmd == "section-create":
+        if len(args) < 2:
+            print("Usage: asana-cli section-create <name>", file=sys.stderr)
+            sys.exit(1)
+        cmd_section_create(token, config, " ".join(args[1:]))
+    elif cmd == "section-rename":
+        if len(args) < 3:
+            print("Usage: asana-cli section-rename <section> <new_name>", file=sys.stderr)
+            sys.exit(1)
+        cmd_section_rename(token, config, args[1], " ".join(args[2:]))
+    elif cmd == "section-delete":
+        if len(args) < 2:
+            print("Usage: asana-cli section-delete <section>", file=sys.stderr)
+            sys.exit(1)
+        cmd_section_delete(token, config, " ".join(args[1:]))
     elif cmd in ("search", "find"):
         if len(args) < 2:
             print("Usage: asana-cli search <query>", file=sys.stderr)
