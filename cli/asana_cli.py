@@ -53,7 +53,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.5.1"
+VERSION = "0.5.2"
 BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -400,25 +400,45 @@ def cmd_projects(token, workspace_gid=None):
     return active
 
 
-def cmd_project_create(token, name, workspace_gid=None):
+def cmd_project_create(token, name, workspace_gid=None, team_gid=None):
     """Create a new project in workspace."""
     if not workspace_gid:
-        workspaces = api("GET", "/workspaces?opt_fields=name,gid", token)
+        workspaces = api("GET", "/workspaces?opt_fields=name,gid,is_organization", token)
         if len(workspaces) == 1:
             workspace_gid = workspaces[0]["gid"]
+            is_org = workspaces[0].get("is_organization", False)
         else:
             print("Multiple workspaces found. Specify one:")
             for ws in workspaces:
                 print(f"  {ws['gid']}  {ws['name']}")
             print("\nUsage: asana-cli project-create <name> --workspace <gid>")
             return
-    project = api("POST", "/projects", token, {
-        "data": {
-            "name": name,
-            "workspace": workspace_gid,
-            "default_view": "board",
-        }
-    })
+    else:
+        ws = api("GET", f"/workspaces/{workspace_gid}?opt_fields=is_organization", token)
+        is_org = ws.get("is_organization", False)
+
+    # Organizations require a team
+    if is_org and not team_gid:
+        teams = api("GET", f"/organizations/{workspace_gid}/teams?opt_fields=name&limit=100", token)
+        if len(teams) == 1:
+            team_gid = teams[0]["gid"]
+            print(f"Team: {teams[0]['name']}")
+        else:
+            print("Organization requires a team. Available teams:")
+            for t in teams:
+                print(f"  {t['gid']}  {t['name']}")
+            print("\nUsage: asana-cli project-create <name> --team <gid>")
+            return
+
+    data = {
+        "name": name,
+        "workspace": workspace_gid,
+        "default_view": "board",
+    }
+    if team_gid:
+        data["team"] = team_gid
+
+    project = api("POST", "/projects", token, {"data": data})
     print(f"Created project: {project['gid']}  {project['name']}")
 
 
@@ -849,19 +869,23 @@ def main():
         return
     if args[0] == "project-create":
         if len(args) < 2:
-            print("Usage: asana-cli project-create <name> [--workspace <gid>]", file=sys.stderr)
+            print("Usage: asana-cli project-create <name> [--workspace <gid>] [--team <gid>]", file=sys.stderr)
             sys.exit(1)
         name_parts = []
         ws_gid = None
+        team_gid = None
         i = 1
         while i < len(args):
             if args[i] in ("--workspace", "-w"):
                 i += 1
                 ws_gid = args[i] if i < len(args) else None
+            elif args[i] in ("--team", "-t"):
+                i += 1
+                team_gid = args[i] if i < len(args) else None
             else:
                 name_parts.append(args[i])
             i += 1
-        cmd_project_create(token, " ".join(name_parts), ws_gid)
+        cmd_project_create(token, " ".join(name_parts), ws_gid, team_gid)
         return
     if args[0] == "init":
         cmd_init(token)
