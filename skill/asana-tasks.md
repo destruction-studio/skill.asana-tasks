@@ -151,7 +151,8 @@ asana-cli description <id> <t>  Update task description
 asana-cli history <id>          Show task activity
 asana-cli members               List project members
 asana-cli board                 Compact board view
-asana-cli project-create <name> Create project (--workspace <gid>)
+asana-cli users [ws_gid]        List workspace users
+asana-cli project-create <name> Create project (--workspace, --team)
 asana-cli section-create <name> Create new section
 asana-cli section-rename <s> <n> Rename section
 asana-cli section-delete <s>    Delete section

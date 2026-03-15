@@ -39,6 +39,7 @@ Usage:
   asana-cli history <id>          Show task activity
   asana-cli members               List project members
   asana-cli board                 Compact board view
+  asana-cli users                    List workspace users
   asana-cli project-create <name>    Create project in workspace
   asana-cli section-create <name>    Create section
   asana-cli section-rename <s> <new> Rename section
@@ -53,7 +54,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.5.2"
+VERSION = "0.5.3"
 BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -398,6 +399,27 @@ def cmd_projects(token, workspace_gid=None):
         print(f"{p['gid']}  {p['name']}")
     print(f"\nTotal: {len(active)} projects")
     return active
+
+
+def cmd_users(token, workspace_gid=None):
+    """List users in workspace."""
+    if not workspace_gid:
+        workspaces = api("GET", "/workspaces?opt_fields=name,gid", token)
+        if len(workspaces) == 1:
+            workspace_gid = workspaces[0]["gid"]
+            print(f"Workspace: {workspaces[0]['name']}\n")
+        else:
+            print("Multiple workspaces found. Specify one:")
+            for ws in workspaces:
+                print(f"  {ws['gid']}  {ws['name']}")
+            print("\nUsage: asana-cli users <workspace_gid>")
+            return
+    users = api("GET",
+                f"/workspaces/{workspace_gid}/users?opt_fields=name,email&limit=100",
+                token)
+    for u in users:
+        print(f"  {u['gid']}  {u['name']} ({u.get('email', '-')})")
+    print(f"\nTotal: {len(users)} users")
 
 
 def cmd_project_create(token, name, workspace_gid=None, team_gid=None):
@@ -866,6 +888,9 @@ def main():
         return
     if args[0] == "projects":
         cmd_projects(token, args[1] if len(args) > 1 else None)
+        return
+    if args[0] == "users":
+        cmd_users(token, args[1] if len(args) > 1 else None)
         return
     if args[0] == "project-create":
         if len(args) < 2:
