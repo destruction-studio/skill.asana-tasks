@@ -54,8 +54,8 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.5.4"
-BASE_URL = "https://app.asana.com/api/1.0"
+VERSION = "0.5.5"
+DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 
 def find_project_root():
@@ -96,9 +96,26 @@ def load_token():
     return None
 
 
+def resolve_base_url():
+    """Resolve API base URL: ASANA_BASE_URL env > asana.json baseUrl > default."""
+    env = os.environ.get("ASANA_BASE_URL")
+    if env:
+        return env.rstrip("/")
+    _, config_path = find_project_root()
+    if config_path:
+        try:
+            with open(config_path) as f:
+                cfg = json.load(f)
+                if cfg.get("baseUrl"):
+                    return cfg["baseUrl"].rstrip("/")
+        except Exception:
+            pass
+    return DEFAULT_BASE_URL
+
+
 def api(method, path, token, body=None):
     """Make Asana API request."""
-    url = f"{BASE_URL}{path}"
+    url = f"{resolve_base_url()}{path}"
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
