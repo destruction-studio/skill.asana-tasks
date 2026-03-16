@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.7 (2026-03-16)
+- New: `--pin` flag for `comment` command (sets `is_pinned` on the comment)
+
 ## 0.6.6 (2026-03-16)
 - Fix: `#` → `<h1>`, `##` → `<h2>` in markdown conversion (was all `<strong>`)
 - Fix: `**bold**` now works inside list items
