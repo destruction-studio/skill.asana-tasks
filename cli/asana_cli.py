@@ -55,7 +55,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.6.4"
+VERSION = "0.6.5"
 BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -725,13 +725,19 @@ def md_to_asana_html(text):
     result = []
     in_list = False
     for line in lines:
-        # Headers → <strong> (comments) or skip h1/h2 for simplicity
+        # Skip empty lines between sections (avoid extra whitespace)
+        if not line.strip():
+            if in_list:
+                result.append("</ul>")
+                in_list = False
+            continue
+        # Headers
         m = re.match(r'^(#{1,6})\s+(.+)$', line)
         if m:
             if in_list:
                 result.append("</ul>")
                 in_list = False
-            result.append(f"\n<strong>{m.group(2)}</strong>\n")
+            result.append(f"<strong>{m.group(2)}</strong>")
             continue
         # List items
         m = re.match(r'^[\-\*]\s+(.+)$', line)
@@ -741,8 +747,8 @@ def md_to_asana_html(text):
                 in_list = True
             result.append(f"<li>{m.group(1)}</li>")
             continue
-        # Close list on non-list line
-        if in_list and not line.strip():
+        # Non-list line closes list
+        if in_list:
             result.append("</ul>")
             in_list = False
         # Inline formatting
