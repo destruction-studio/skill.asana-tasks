@@ -34,6 +34,7 @@ Usage:
   asana-cli tags <id>             List tags on task
   asana-cli tag <id> <name>       Add tag (creates if not found)
   asana-cli untag <id> <name>     Remove tag
+  asana-cli rename <id> <name>    Rename task
   asana-cli reopen <id>           Reopen completed task
   asana-cli description <id> <text>  Update task description
   asana-cli history <id>          Show task activity
@@ -55,7 +56,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.6.7"
+VERSION = "0.6.8"
 BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -850,6 +851,11 @@ def cmd_tag_remove(token, task_id, tag_name):
     print(f"Tag '{found['name']}' removed from task {task_id}")
 
 
+def cmd_rename(token, task_id, name):
+    api("PUT", f"/tasks/{task_id}", token, {"data": {"name": name}})
+    print(f"Task {task_id} renamed to \"{name}\"")
+
+
 def cmd_reopen(token, config, task_id):
     api("PUT", f"/tasks/{task_id}", token, {"data": {"completed": False}})
     print(f"Task {task_id} reopened")
@@ -1221,6 +1227,11 @@ def main():
             print("Usage: asana-cli untag <task_id> <tag_name>", file=sys.stderr)
             sys.exit(1)
         cmd_tag_remove(token, args[1], " ".join(args[2:]))
+    elif cmd == "rename":
+        if len(args) < 3:
+            print("Usage: asana-cli rename <task_id> <new_name>", file=sys.stderr)
+            sys.exit(1)
+        cmd_rename(token, args[1], " ".join(args[2:]))
     elif cmd == "reopen":
         if len(args) < 2:
             print("Usage: asana-cli reopen <task_id>", file=sys.stderr)

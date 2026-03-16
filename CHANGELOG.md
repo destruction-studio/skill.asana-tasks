@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.8 (2026-03-16)
+- New: `rename` command — rename a task
+
 ## 0.6.7 (2026-03-16)
 - New: `--pin` flag for `comment` command (sets `is_pinned` on the comment)
 
