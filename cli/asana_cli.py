@@ -39,6 +39,7 @@ Usage:
   asana-cli history <id>          Show task activity
   asana-cli members               List project members
   asana-cli board                 Compact board view
+  asana-cli overview                  Dashboard: my + todo + review (1 API call)
   asana-cli users                    List workspace users
   asana-cli project-create <name>    Create project in workspace
   asana-cli section-create <name>    Create section
@@ -54,7 +55,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.5.6"
+VERSION = "0.6.0"
 BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -404,6 +405,82 @@ def cmd_projects(token, workspace_gid=None):
         print(f"{p['gid']}  {p['name']}")
     print(f"\nTotal: {len(active)} projects")
     return active
+
+
+def cmd_overview(token, config):
+    """Single API call dashboard: my tasks, review, todo, in progress."""
+    project_id = config["projectId"]
+    me = get_me(token)
+    fields = "name,completed,assignee.gid,assignee.name,memberships.section.name,memberships.section.gid,due_on"
+    tasks = api("GET", f"/projects/{project_id}/tasks?opt_fields={fields}&limit=100", token)
+
+    # Categorize
+    my_tasks = []
+    by_section = {}
+    for t in tasks:
+        if t.get("completed"):
+            continue
+        sec_name = (t.get("memberships") or [{}])[0].get("section", {}).get("name", "")
+        by_section.setdefault(sec_name, []).append(t)
+        if t.get("assignee") and t["assignee"].get("gid") == me["gid"]:
+            my_tasks.append(t)
+
+    def print_tasks(task_list):
+        for t in task_list:
+            assignee = t.get("assignee")
+            extra = f"  @{assignee['name']}" if assignee else ""
+            if t.get("due_on"):
+                extra += f"  due:{t['due_on']}"
+            print(f"  [ ] {t['gid']}  {t['name']}{extra}")
+
+    # My tasks
+    print(f"\n── My Tasks ({len(my_tasks)}) ──")
+    if my_tasks:
+        print_tasks(my_tasks)
+    else:
+        print("  (none)")
+
+    # Review / Test
+    review_keys = [k for k in by_section if "review" in k.lower() or "test" in k.lower()]
+    review_tasks = []
+    for k in review_keys:
+        review_tasks.extend(by_section[k])
+    print(f"\n── Review / Test ({len(review_tasks)}) ──")
+    if review_tasks:
+        print_tasks(review_tasks)
+    else:
+        print("  (none)")
+
+    # TODO
+    todo_keys = [k for k in by_section if "todo" in k.lower().replace(" ", "")]
+    todo_tasks = []
+    for k in todo_keys:
+        todo_tasks.extend(by_section[k])
+    print(f"\n── TODO ({len(todo_tasks)}) ──")
+    if todo_tasks:
+        print_tasks(todo_tasks)
+    else:
+        print("  (none)")
+
+    # In Progress
+    progress_keys = [k for k in by_section if "progress" in k.lower()]
+    progress_tasks = []
+    for k in progress_keys:
+        progress_tasks.extend(by_section[k])
+    print(f"\n── In Progress ({len(progress_tasks)}) ──")
+    if progress_tasks:
+        print_tasks(progress_tasks)
+    else:
+        print("  (none)")
+
+    # Bugs
+    bug_keys = [k for k in by_section if "bug" in k.lower()]
+    bug_tasks = []
+    for k in bug_keys:
+        bug_tasks.extend(by_section[k])
+    if bug_tasks:
+        print(f"\n── Bugs ({len(bug_tasks)}) ──")
+        print_tasks(bug_tasks)
 
 
 def cmd_users(token, workspace_gid=None):
@@ -1081,6 +1158,8 @@ def main():
             print("Usage: asana-cli history <task_id>", file=sys.stderr)
             sys.exit(1)
         cmd_history(token, args[1])
+    elif cmd == "overview":
+        cmd_overview(token, config)
     elif cmd == "members":
         cmd_members(token, config)
     elif cmd == "board":

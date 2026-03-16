@@ -92,9 +92,7 @@ Rules override the defaults below.
 ### When developer asks "what to work on?" or similar:
 
 ```bash
-asana-cli my                    # show tasks assigned to this developer
-asana-cli list review           # show tasks awaiting deploy/test
-asana-cli list todo             # show tasks ready to start
+asana-cli overview              # single call: my tasks + review + todo + in progress + bugs
 ```
 
 Present the results and ask what to pick.
@@ -150,6 +148,7 @@ asana-cli reopen <id>           Reopen completed task
 asana-cli description <id> <t>  Update task description
 asana-cli history <id>          Show task activity
 asana-cli members               List project members
+asana-cli overview              Dashboard (my + review + todo + progress, 1 API call)
 asana-cli board                 Compact board view
 asana-cli users [ws_gid]        List workspace users
 asana-cli project-create <name> Create project (--workspace, --team)
