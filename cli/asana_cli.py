@@ -54,7 +54,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.5.4"
+VERSION = "0.5.6"
 BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -178,17 +178,11 @@ def cmd_list(token, config, section_filter=None):
 def cmd_my(token, config):
     project_id = config["projectId"]
     me = get_me(token)
-    fields = "name,completed,memberships.section.name"
+    fields = "name,completed,assignee.gid,memberships.section.name"
     tasks = api("GET", f"/projects/{project_id}/tasks?opt_fields={fields}&limit=100", token)
 
-    my_tasks = [t for t in tasks if t.get("assignee", {}).get("gid") == me["gid"]]
-    # Re-fetch with assignee field since list doesn't always include it
-    # Use assignee filter instead
-    my_tasks_url = (
-        f"/tasks?project={project_id}&assignee={me['gid']}"
-        f"&opt_fields=name,completed,memberships.section.name&limit=100"
-    )
-    my_tasks = api("GET", my_tasks_url, token)
+    my_tasks = [t for t in tasks
+                if t.get("assignee") and t["assignee"].get("gid") == me["gid"]]
 
     if not my_tasks:
         print("No tasks assigned to you.")
