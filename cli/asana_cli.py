@@ -55,7 +55,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.6.5"
+VERSION = "0.6.6"
 BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -718,6 +718,15 @@ def cmd_due(token, task_id, date_str):
         print(f"Task {task_id} due date cleared")
 
 
+def _apply_inline_md(text):
+    """Apply inline markdown: **bold**, *italic*, `code`."""
+    import re
+    text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+    text = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<em>\1</em>', text)
+    text = re.sub(r'`(.+?)`', r'<code>\1</code>', text)
+    return text
+
+
 def md_to_asana_html(text):
     """Convert markdown to Asana rich text HTML. No <br>/<p>/<div> — use \\n for line breaks."""
     import re
@@ -725,37 +734,40 @@ def md_to_asana_html(text):
     result = []
     in_list = False
     for line in lines:
-        # Skip empty lines between sections (avoid extra whitespace)
+        # Skip empty lines
         if not line.strip():
             if in_list:
                 result.append("</ul>")
                 in_list = False
             continue
-        # Headers
+        # Headers: # → <h1>, ## → <h2>, ### and deeper → <strong>
         m = re.match(r'^(#{1,6})\s+(.+)$', line)
         if m:
             if in_list:
                 result.append("</ul>")
                 in_list = False
-            result.append(f"<strong>{m.group(2)}</strong>")
+            level = len(m.group(1))
+            content = _apply_inline_md(m.group(2))
+            if level == 1:
+                result.append(f"<h1>{content}</h1>")
+            elif level == 2:
+                result.append(f"<h2>{content}</h2>")
+            else:
+                result.append(f"<strong>{content}</strong>")
             continue
-        # List items
+        # List items — apply inline formatting to content
         m = re.match(r'^[\-\*]\s+(.+)$', line)
         if m:
             if not in_list:
                 result.append("<ul>")
                 in_list = True
-            result.append(f"<li>{m.group(1)}</li>")
+            result.append(f"<li>{_apply_inline_md(m.group(1))}</li>")
             continue
         # Non-list line closes list
         if in_list:
             result.append("</ul>")
             in_list = False
-        # Inline formatting
-        line = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', line)
-        line = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<em>\1</em>', line)
-        line = re.sub(r'`(.+?)`', r'<code>\1</code>', line)
-        result.append(line)
+        result.append(_apply_inline_md(line))
     if in_list:
         result.append("</ul>")
     return "\n".join(result)
