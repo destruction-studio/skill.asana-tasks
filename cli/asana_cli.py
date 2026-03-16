@@ -55,7 +55,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.6.3"
+VERSION = "0.6.4"
 BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -718,9 +718,52 @@ def cmd_due(token, task_id, date_str):
         print(f"Task {task_id} due date cleared")
 
 
+def md_to_asana_html(text):
+    """Convert markdown to Asana rich text HTML. No <br>/<p>/<div> — use \\n for line breaks."""
+    import re
+    lines = text.split("\n")
+    result = []
+    in_list = False
+    for line in lines:
+        # Headers → <strong> (comments) or skip h1/h2 for simplicity
+        m = re.match(r'^(#{1,6})\s+(.+)$', line)
+        if m:
+            if in_list:
+                result.append("</ul>")
+                in_list = False
+            result.append(f"\n<strong>{m.group(2)}</strong>\n")
+            continue
+        # List items
+        m = re.match(r'^[\-\*]\s+(.+)$', line)
+        if m:
+            if not in_list:
+                result.append("<ul>")
+                in_list = True
+            result.append(f"<li>{m.group(1)}</li>")
+            continue
+        # Close list on non-list line
+        if in_list and not line.strip():
+            result.append("</ul>")
+            in_list = False
+        # Inline formatting
+        line = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', line)
+        line = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<em>\1</em>', line)
+        line = re.sub(r'`(.+?)`', r'<code>\1</code>', line)
+        result.append(line)
+    if in_list:
+        result.append("</ul>")
+    return "\n".join(result)
+
+
 def cmd_comment(token, task_id, text):
-    api("POST", f"/tasks/{task_id}/stories", token,
-        {"data": {"text": text}})
+    has_md = any(text.lstrip().startswith(c) for c in ("#", "-", "*")) or "**" in text or "`" in text
+    if has_md:
+        html = md_to_asana_html(text)
+        api("POST", f"/tasks/{task_id}/stories", token,
+            {"data": {"html_text": f"<body>{html}</body>"}})
+    else:
+        api("POST", f"/tasks/{task_id}/stories", token,
+            {"data": {"text": text}})
     print(f"Comment added to task {task_id}")
 
 
@@ -793,7 +836,13 @@ def cmd_reopen(token, config, task_id):
 
 
 def cmd_description(token, task_id, text):
-    api("PUT", f"/tasks/{task_id}", token, {"data": {"notes": text}})
+    has_md = any(text.lstrip().startswith(c) for c in ("#", "-", "*")) or "**" in text or "`" in text
+    if has_md:
+        html = md_to_asana_html(text)
+        api("PUT", f"/tasks/{task_id}", token,
+            {"data": {"html_notes": f"<body>{html}</body>"}})
+    else:
+        api("PUT", f"/tasks/{task_id}", token, {"data": {"notes": text}})
     print(f"Task {task_id} description updated")
 
 
