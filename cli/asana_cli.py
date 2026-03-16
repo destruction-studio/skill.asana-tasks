@@ -28,7 +28,7 @@ Usage:
   asana-cli watch <id> [user]     Add follower/watcher ("me" default)
   asana-cli unwatch <id> [user]   Remove follower/watcher
   asana-cli due <id> <date>       Set due date (YYYY-MM-DD or "clear")
-  asana-cli comment <id> <text>   Add comment to task
+  asana-cli comment <id> <text> [--pin]  Add comment (--pin to pin)
   asana-cli subtasks <id>         List subtasks
   asana-cli subtask <id> <name>   Create subtask
   asana-cli tags <id>             List tags on task
@@ -55,7 +55,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.6.6"
+VERSION = "0.6.7"
 BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -773,16 +773,18 @@ def md_to_asana_html(text):
     return "\n".join(result)
 
 
-def cmd_comment(token, task_id, text):
+def cmd_comment(token, task_id, text, pin=False):
     has_md = any(text.lstrip().startswith(c) for c in ("#", "-", "*")) or "**" in text or "`" in text
     if has_md:
         html = md_to_asana_html(text)
-        api("POST", f"/tasks/{task_id}/stories", token,
-            {"data": {"html_text": f"<body>{html}</body>"}})
+        data = {"html_text": f"<body>{html}</body>"}
     else:
-        api("POST", f"/tasks/{task_id}/stories", token,
-            {"data": {"text": text}})
-    print(f"Comment added to task {task_id}")
+        data = {"text": text}
+    if pin:
+        data["is_pinned"] = True
+    story = api("POST", f"/tasks/{task_id}/stories", token, {"data": data})
+    pinned = " (pinned)" if pin else ""
+    print(f"Comment added to task {task_id}{pinned}")
 
 
 def cmd_subtasks(token, task_id):
@@ -1189,9 +1191,11 @@ def main():
         cmd_due(token, args[1], args[2])
     elif cmd == "comment":
         if len(args) < 3:
-            print("Usage: asana-cli comment <task_id> <text>", file=sys.stderr)
+            print("Usage: asana-cli comment <task_id> <text> [--pin]", file=sys.stderr)
             sys.exit(1)
-        cmd_comment(token, args[1], " ".join(args[2:]))
+        pin = "--pin" in args
+        text_parts = [a for a in args[2:] if a != "--pin"]
+        cmd_comment(token, args[1], " ".join(text_parts), pin=pin)
     elif cmd == "subtasks":
         if len(args) < 2:
             print("Usage: asana-cli subtasks <task_id>", file=sys.stderr)
