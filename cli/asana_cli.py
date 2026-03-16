@@ -55,7 +55,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.6.0"
+VERSION = "0.6.1"
 BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -425,18 +425,25 @@ def cmd_overview(token, config):
         if t.get("assignee") and t["assignee"].get("gid") == me["gid"]:
             my_tasks.append(t)
 
-    def print_tasks(task_list):
+    def print_tasks(task_list, show_section=False):
         for t in task_list:
+            parts = []
+            if show_section:
+                sec = (t.get("memberships") or [{}])[0].get("section", {}).get("name", "")
+                if sec:
+                    parts.append(sec)
             assignee = t.get("assignee")
-            extra = f"  @{assignee['name']}" if assignee else ""
+            if assignee:
+                parts.append(f"@{assignee['name']}")
             if t.get("due_on"):
-                extra += f"  due:{t['due_on']}"
+                parts.append(f"due:{t['due_on']}")
+            extra = f"  ({', '.join(parts)})" if parts else ""
             print(f"  [ ] {t['gid']}  {t['name']}{extra}")
 
-    # My tasks
+    # My tasks (show section since they can be in different sections)
     print(f"\n── My Tasks ({len(my_tasks)}) ──")
     if my_tasks:
-        print_tasks(my_tasks)
+        print_tasks(my_tasks, show_section=True)
     else:
         print("  (none)")
 
