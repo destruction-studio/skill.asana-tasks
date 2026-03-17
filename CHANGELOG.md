@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.0 (2026-03-17)
+- New: multi-target support (`--target <name>`, `--target all`)
+- Config supports `targets` map with `default` key
+- Per-target tokens in `~/.config/asana/tokens/<name>`
+- Backward compatible with legacy single-target config
+- Enables dual write to Asana + Taskana simultaneously
+
 ## 0.7.0 (2026-03-17)
 - New: `deps` — list dependencies (blocked by)
 - New: `dep` / `undep` — add/remove dependency

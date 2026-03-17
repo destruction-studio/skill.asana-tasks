@@ -53,6 +53,10 @@ Usage:
   asana-cli section-rename <s> <new> Rename section
   asana-cli section-delete <section> Delete section
   asana-cli update                Update CLI + skill
+
+Global flags:
+  --target <name>               Use specific target (from asana.json targets)
+  --target all                  Execute on all targets (dual write)
 """
 
 import json
@@ -62,8 +66,8 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.7.0"
-BASE_URL = "https://app.asana.com/api/1.0"
+VERSION = "0.8.0"
+DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 
 def find_project_root():
@@ -77,36 +81,87 @@ def find_project_root():
     return None, None
 
 
-def load_config():
-    """Load project config from .claude-team/asana.json."""
+def load_raw_config():
+    """Load raw JSON from .claude-team/asana.json."""
     _, config_path = find_project_root()
     if not config_path:
-        print("No .claude-team/asana.json found in current or parent directories.")
-        print("See: https://github.com/destruction-studio/skill.asana-tasks#project-setup")
-        sys.exit(1)
-
+        return None
     with open(config_path) as f:
         return json.load(f)
 
 
-def load_token():
-    """Load token from ~/.config/asana/token or ASANA_TOKEN env var."""
+def resolve_targets(raw_config, target_name=None):
+    """Resolve config into list of (name, config) tuples based on target selection.
+
+    Supports two config formats:
+    - Legacy: { projectId, workspaceId, ... }
+    - Multi:  { targets: { asana: {...}, taskana: {...} }, default: "asana" }
+
+    Returns list of (target_name, target_config) tuples.
+    """
+    if not raw_config:
+        print("No .claude-team/asana.json found in current or parent directories.")
+        print("See: https://github.com/destruction-studio/skill.asana-tasks#project-setup")
+        sys.exit(1)
+
+    # Legacy format (no targets key)
+    if "targets" not in raw_config:
+        base_url = raw_config.get("baseUrl", DEFAULT_BASE_URL)
+        return [("default", {**raw_config, "baseUrl": base_url})]
+
+    # Multi-target format
+    targets = raw_config["targets"]
+    default = raw_config.get("default", next(iter(targets)))
+
+    if target_name == "all":
+        return [(name, {**cfg, "baseUrl": cfg.get("baseUrl", DEFAULT_BASE_URL)})
+                for name, cfg in targets.items()]
+
+    name = target_name or default
+    if name not in targets:
+        print(f"Target '{name}' not found. Available: {', '.join(targets.keys())}", file=sys.stderr)
+        sys.exit(1)
+
+    cfg = targets[name]
+    return [(name, {**cfg, "baseUrl": cfg.get("baseUrl", DEFAULT_BASE_URL)})]
+
+
+def load_config(target_name=None):
+    """Load config for default or specified target. Returns first target config."""
+    raw = load_raw_config()
+    resolved = resolve_targets(raw, target_name)
+    return resolved[0][1]
+
+
+def load_token(target_name=None):
+    """Load token. Checks per-target file, then default, then env var."""
     # Env var takes priority
     token = os.environ.get("ASANA_TOKEN")
     if token:
         return token.strip()
 
-    # File
-    token_path = Path.home() / ".config" / "asana" / "token"
+    config_dir = Path.home() / ".config" / "asana"
+
+    # Per-target token file
+    if target_name and target_name not in ("default", "all"):
+        target_path = config_dir / "tokens" / target_name
+        if target_path.exists():
+            return target_path.read_text().strip()
+
+    # Default token file
+    token_path = config_dir / "token"
     if token_path.exists():
         return token_path.read_text().strip()
 
     return None
 
 
-def api(method, path, token, body=None):
-    """Make Asana API request."""
-    url = f"{BASE_URL}{path}"
+ACTIVE_BASE_URL = DEFAULT_BASE_URL
+
+
+def api(method, path, token, body=None, base_url=None):
+    """Make API request."""
+    url = f"{base_url or ACTIVE_BASE_URL}{path}"
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
@@ -1057,12 +1112,38 @@ def cmd_update():
 
 # --- Main ---
 
+def run_for_targets(target_name, fn):
+    """Run a function for each resolved target. Sets ACTIVE_BASE_URL globally."""
+    global ACTIVE_BASE_URL
+    raw = load_raw_config()
+    targets = resolve_targets(raw, target_name)
+    multi = len(targets) > 1
+    for tgt_name, tgt_config in targets:
+        ACTIVE_BASE_URL = tgt_config["baseUrl"]
+        if multi:
+            print(f"\n═══ {tgt_name} ═══")
+        fn(tgt_config)
+
+
 def main():
     args = sys.argv[1:]
 
     if not args or args[0] in ("-h", "--help", "help"):
         print(__doc__.strip())
         return
+
+    # Extract --target flag before command parsing
+    target_name = None
+    filtered_args = []
+    i = 0
+    while i < len(args):
+        if args[i] == "--target":
+            i += 1
+            target_name = args[i] if i < len(args) else None
+        else:
+            filtered_args.append(args[i])
+        i += 1
+    args = filtered_args
 
     if args[0] == "--version":
         print(VERSION)
@@ -1095,8 +1176,8 @@ def main():
         cmd_status()
         return
 
-    # Load token
-    token = load_token()
+    # Load token (per-target if specified)
+    token = load_token(target_name)
     if not token:
         print("No Asana token found.")
         print("Run: asana-cli auth <token>")
@@ -1146,11 +1227,25 @@ def main():
         cmd_init_write(args[1], args[2])
         return
 
-    # Commands that need project config
-    config = load_config()
+    # Commands that need project config — resolve targets
+    global ACTIVE_BASE_URL
+    raw = load_raw_config()
+    targets = resolve_targets(raw, target_name)
 
-    cmd = args[0]
+    for tgt_idx, (tgt_name, config) in enumerate(targets):
+        ACTIVE_BASE_URL = config["baseUrl"]
+        if len(targets) > 1:
+            print(f"\n═══ {tgt_name} ═══")
 
+        cmd = args[0]
+
+        _run_command(cmd, args, token, config)
+
+    return
+
+
+def _run_command(cmd, args, token, config):
+    """Execute a single command against one target."""
     if cmd in ("list", "ls"):
         cmd_list(token, config, args[1] if len(args) > 1 else None)
     elif cmd == "my":

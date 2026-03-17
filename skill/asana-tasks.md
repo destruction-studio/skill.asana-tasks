@@ -167,6 +167,27 @@ asana-cli workspaces            List available workspaces
 asana-cli projects [ws_gid]     List projects in workspace
 ```
 
+## Multi-target
+
+Config supports multiple backends (e.g. Asana + Taskana):
+
+```json
+{
+    "targets": {
+        "asana": { "baseUrl": "https://app.asana.com/api/1.0", "projectId": "...", "workspaceId": "..." },
+        "taskana": { "baseUrl": "https://taskana.example.com/api/1.0", "projectId": "...", "workspaceId": "..." }
+    },
+    "default": "asana"
+}
+```
+
+- Without `--target` → uses `default`
+- `--target taskana` → specific target
+- `--target all` → executes on all targets (dual write)
+- Per-target tokens: `~/.config/asana/tokens/<name>`
+
+Legacy single-target config still works.
+
 ## Important
 
 - Always use the CLI tool, not raw curl, for Asana operations.
