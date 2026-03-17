@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.1 (2026-03-17)
+- New: `--token` flag for `add-target` — saves per-target token automatically
+- Prevents Claude from overwriting default Asana token with Taskana token
+
 ## 0.9.0 (2026-03-17)
 - `add-target` now fully configures in one call: verifies connection, resolves workspace, validates project
 - New: `--project` flag for `add-target` (e.g. `add-target taskana https://... --project 12`)

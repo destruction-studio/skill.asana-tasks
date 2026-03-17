@@ -52,7 +52,7 @@ Usage:
   asana-cli section-create <name>    Create section
   asana-cli section-rename <s> <new> Rename section
   asana-cli section-delete <section> Delete section
-  asana-cli add-target <name> <url> [--project <gid>]  Add backend
+  asana-cli add-target <name> <url> [--project <gid>] [--token <tok>]  Add backend
   asana-cli set-target-project <target> <gid>         Set project for target
   asana-cli dismiss-multitarget   Don't ask about multi-target again
   asana-cli update                Update CLI + skill
@@ -69,7 +69,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.9.0"
+VERSION = "0.9.1"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -1061,15 +1061,29 @@ def cmd_board(token, config):
         print("└─")
 
 
-def cmd_add_target(token, name, base_url, project_gid=None):
+def cmd_add_target(token, name, base_url, project_gid=None, target_token=None):
     """Add a new target to .claude-team/asana.json, migrating from legacy if needed.
-    Auto-resolves workspaceId. If --project given, fully configures in one call."""
+    Auto-resolves workspaceId. If --project given, fully configures in one call.
+    If --token given, saves per-target token."""
     root, config_path = find_project_root()
     if not config_path:
         print("No .claude-team/asana.json found.", file=sys.stderr)
         sys.exit(1)
 
     base_url = base_url.rstrip("/")
+
+    # Save per-target token if provided
+    if target_token:
+        token_dir = Path.home() / ".config" / "asana" / "tokens"
+        token_dir.mkdir(parents=True, exist_ok=True)
+        token_path = token_dir / name
+        token_path.write_text(target_token.strip() + "\n")
+        try:
+            token_path.chmod(0o600)
+        except OSError:
+            pass
+        token = target_token.strip()
+        print(f"Token saved to {token_path}")
 
     # Verify connection
     print(f"Connecting to {base_url}...")
@@ -1370,13 +1384,17 @@ def main():
         at_name = args[1]
         at_url = args[2]
         at_project = None
+        at_token = None
         i = 3
         while i < len(args):
             if args[i] in ("--project", "-p"):
                 i += 1
                 at_project = args[i] if i < len(args) else None
+            elif args[i] in ("--token", "-t"):
+                i += 1
+                at_token = args[i] if i < len(args) else None
             i += 1
-        cmd_add_target(token, at_name, at_url, at_project)
+        cmd_add_target(token, at_name, at_url, at_project, at_token)
         return
     if args[0] == "set-target-project":
         if len(args) < 3:
