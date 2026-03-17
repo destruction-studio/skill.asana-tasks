@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.5 (2026-03-17)
+- New: `add-target` command — add another backend, auto-migrate legacy config
+- New: `dismiss-multitarget` — suppress the multi-target hint
+- `overview` shows NOTE hint when single-target and not dismissed
+- Multi-target hint moved from skill to CLI output (more reliable)
+
+## 0.8.4 (2026-03-17)
+- Fix: multi-target graceful error handling — skip target on API error instead of crashing
+
 ## 0.8.3 (2026-03-17)
 - Skill: use `.claude-team/.multitarget-offered` flag file — ask once, never again
 

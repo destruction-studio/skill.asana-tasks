@@ -52,6 +52,8 @@ Usage:
   asana-cli section-create <name>    Create section
   asana-cli section-rename <s> <new> Rename section
   asana-cli section-delete <section> Delete section
+  asana-cli add-target <name>     Add another backend (e.g. taskana)
+  asana-cli dismiss-multitarget   Don't ask about multi-target again
   asana-cli update                Update CLI + skill
 
 Global flags:
@@ -66,7 +68,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.8.3"
+VERSION = "0.8.5"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -477,6 +479,13 @@ def cmd_projects(token, workspace_gid=None):
 
 def cmd_overview(token, config):
     """Single API call dashboard: my tasks, review, todo, in progress."""
+    # Multi-target hint
+    raw = load_raw_config()
+    if raw and "targets" not in raw:
+        root, _ = find_project_root()
+        if root and not (root / ".claude-team" / ".multitarget-offered").exists():
+            print("NOTE: Single-target config. Run 'asana-cli add-target' to add another backend (e.g. Taskana).\n")
+
     project_id = config["projectId"]
     me = get_me(token)
     fields = "name,completed,assignee.gid,assignee.name,memberships.section.name,memberships.section.gid,due_on"
@@ -1042,6 +1051,50 @@ def cmd_board(token, config):
         print("└─")
 
 
+def cmd_add_target(token, name, base_url):
+    """Add a new target to .claude-team/asana.json, migrating from legacy if needed."""
+    root, config_path = find_project_root()
+    if not config_path:
+        print("No .claude-team/asana.json found.", file=sys.stderr)
+        sys.exit(1)
+
+    with open(config_path) as f:
+        raw = json.load(f)
+
+    # Migrate legacy → multi-target
+    if "targets" not in raw:
+        legacy = {k: v for k, v in raw.items() if k not in ("prefixes", "phases")}
+        legacy.setdefault("baseUrl", DEFAULT_BASE_URL)
+        top_level = {k: v for k, v in raw.items() if k in ("prefixes", "phases")}
+        raw = {
+            **top_level,
+            "targets": {"asana": legacy},
+            "default": "asana",
+        }
+
+    # Add new target
+    raw["targets"][name] = {"baseUrl": base_url.rstrip("/")}
+
+    with open(config_path, "w") as f:
+        json.dump(raw, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+
+    print(f"Target '{name}' added (baseUrl: {base_url})")
+    print(f"Config: {config_path}")
+    print(f"\nNext: run 'asana-cli --target {name} projects' to pick a project")
+
+
+def cmd_dismiss_multitarget():
+    """Create .multitarget-offered flag to suppress the hint."""
+    root, _ = find_project_root()
+    if not root:
+        print("No .claude-team/ found.", file=sys.stderr)
+        sys.exit(1)
+    flag = root / ".claude-team" / ".multitarget-offered"
+    flag.touch()
+    print("Multi-target hint dismissed.")
+
+
 def cmd_update():
     """Update CLI and skill from GitHub."""
     api_url = "https://api.github.com/repos/destruction-studio/skill.asana-tasks/contents"
@@ -1225,6 +1278,16 @@ def main():
             i += 1
         cmd_project_create(token, " ".join(name_parts), ws_gid, team_gid)
         return
+    if args[0] == "add-target":
+        if len(args) < 3:
+            print("Usage: asana-cli add-target <name> <base_url>", file=sys.stderr)
+            print("Example: asana-cli add-target taskana https://taskana.example.com/api/1.0")
+            sys.exit(1)
+        cmd_add_target(token, args[1], args[2])
+        return
+    if args[0] == "dismiss-multitarget":
+        cmd_dismiss_multitarget()
+        return
     if args[0] == "init":
         cmd_init(token)
         return
@@ -1239,14 +1302,21 @@ def main():
     raw = load_raw_config()
     targets = resolve_targets(raw, target_name)
 
+    multi = len(targets) > 1
     for tgt_idx, (tgt_name, config) in enumerate(targets):
         ACTIVE_BASE_URL = config["baseUrl"]
-        if len(targets) > 1:
+        if multi:
             print(f"\n═══ {tgt_name} ═══")
 
         cmd = args[0]
 
-        _run_command(cmd, args, token, config)
+        if multi:
+            try:
+                _run_command(cmd, args, token, config)
+            except SystemExit:
+                print(f"  (skipped — error on {tgt_name})")
+        else:
+            _run_command(cmd, args, token, config)
 
     return
 
