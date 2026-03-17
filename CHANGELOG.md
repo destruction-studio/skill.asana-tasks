@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.3 (2026-03-17)
+- Skill: use `.claude-team/.multitarget-offered` flag file — ask once, never again
+
 ## 0.8.2 (2026-03-17)
 - Skill: move multi-target check into work mode (was being skipped in activation flow)
 

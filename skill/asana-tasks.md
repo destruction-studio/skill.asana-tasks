@@ -87,11 +87,16 @@ Read `.claude-team/asana.json` for project config.
 If `.claude-team/RULES.md` exists, read it and follow the workflow rules defined there.
 Rules override the defaults below.
 
-**IMPORTANT: Multi-target check.** Before showing tasks, check if `.claude-team/asana.json` has NO `"targets"` key (legacy single-target). If so, **ask once per session:**
+**IMPORTANT: Multi-target check.** Before showing tasks, check TWO conditions:
+1. `.claude-team/asana.json` has NO `"targets"` key (legacy single-target)
+2. `.claude-team/.multitarget-offered` does NOT exist
+
+If both true → ask:
 > "You have a single Asana backend. Want to add another (e.g. Taskana) for dual-write? Say 'skip' to proceed without."
 
 If user wants to add → run the **Add target flow** below.
-If user says skip/no → proceed to show tasks normally.
+If user says skip/no → create `.claude-team/.multitarget-offered` (empty file) and proceed to show tasks.
+Once the file exists, never ask again.
 
 #### Add target flow
 
