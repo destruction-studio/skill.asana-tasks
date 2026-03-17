@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.6 (2026-03-17)
+- Change: multi-target hint now prefixed "FOR CLAUDE:" with explicit instructions to ask user
+
 ## 0.8.5 (2026-03-17)
 - New: `add-target` command — add another backend, auto-migrate legacy config
 - New: `dismiss-multitarget` — suppress the multi-target hint
