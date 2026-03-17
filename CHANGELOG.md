@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.2 (2026-03-17)
+- Skill: simplified add-target flow — ask all 3 params at once, never offer to reuse Asana token
+
 ## 0.9.1 (2026-03-17)
 - New: `--token` flag for `add-target` — saves per-target token automatically
 - Prevents Claude from overwriting default Asana token with Taskana token

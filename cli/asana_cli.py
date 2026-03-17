@@ -69,7 +69,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.9.1"
+VERSION = "0.9.2"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 

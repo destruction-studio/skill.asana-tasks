@@ -100,28 +100,21 @@ Once the file exists, never ask again.
 
 #### Add target flow
 
-**Step A.** Ask for the target name (e.g. "taskana").
+Ask the user for three things in one message:
+1. Target name (e.g. "taskana")
+2. Base URL (e.g. `https://taskana.example.com/api/1.0`)
+3. Token (each backend has its own token — NEVER reuse the Asana token)
 
-**Step B.** Ask for the base URL (e.g. `https://taskana.example.com/api/1.0`).
+Then run one command:
+```bash
+asana-cli add-target <name> <base_url> --token <token> --project <gid>
+```
 
-**Step C.** Ask for the token. Options:
-- Reuse current token (`~/.config/asana/token`)
-- Provide a new token → save to `~/.config/asana/tokens/<name>`
+If user doesn't know the project GID, omit `--project` — the command will list available projects and ask to re-run with `--project`.
 
-**Step D.** Test connection: run `asana-cli --target <name> whoami` to verify.
+After setup, ask: "Want to set the new target as default?" If yes, edit `asana.json` and change `"default"`.
 
-**Step E.** Run `asana-cli --target <name> projects` to list available projects. Ask user to pick one.
-
-**Step F.** Migrate config: read `.claude-team/asana.json`, convert from legacy to multi-target format:
-- Current config becomes `"targets": { "asana": { ...current... } }`
-- New target added: `"targets": { "<name>": { "baseUrl": "...", "projectId": "...", "workspaceId": "..." } }`
-- Set `"default": "asana"` (keep current as default)
-- Preserve `prefixes`, `phases` at top level
-
-**Step G.** Ask: "Want to set the new target as default?"
-If yes → update `"default"` field.
-
-**Step H.** Done. Tell user to commit updated `asana.json`.
+Tell user to commit updated `asana.json`.
 
 ## Default workflow
 
