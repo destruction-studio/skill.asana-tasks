@@ -69,7 +69,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.9.5"
+VERSION = "0.9.6"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -1338,8 +1338,15 @@ def main():
         cmd_status()
         return
 
+    # Resolve effective target name from config default if not specified
+    effective_target = target_name
+    if not effective_target:
+        raw = load_raw_config()
+        if raw and "targets" in raw:
+            effective_target = raw.get("default", next(iter(raw["targets"])))
+
     # Load token (per-target if specified)
-    token = load_token(target_name)
+    token = load_token(effective_target)
     if not token:
         print("No Asana token found.")
         print("Run: asana-cli auth <token>")

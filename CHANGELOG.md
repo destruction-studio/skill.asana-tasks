@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.6 (2026-03-17)
+- Fix: resolve default target name before loading token — prevents 401 when default is non-asana backend
+
 ## 0.9.5 (2026-03-17)
 - Fix: handle `null` section in task memberships (Taskana returns `section: null` for tasks without section)
 - Extract `get_task_section()` helper for safe membership access
