@@ -68,7 +68,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.8.8"
+VERSION = "0.8.9"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -678,9 +678,18 @@ def cmd_init(token):
 
 
 def cmd_init_write(workspace_gid, project_gid):
-    """Write .claude-team/asana.json with given IDs."""
+    """Write .claude-team/asana.json with given IDs. Refuses to overwrite multi-target config."""
     config_dir = Path.cwd() / ".claude-team"
     config_path = config_dir / "asana.json"
+
+    # Refuse to overwrite multi-target config
+    if config_path.exists():
+        with open(config_path) as f:
+            existing = json.load(f)
+        if "targets" in existing:
+            print("ERROR: Multi-target config exists. Use 'add-target' to add targets.", file=sys.stderr)
+            print(f"Config: {config_path}", file=sys.stderr)
+            sys.exit(1)
 
     config = {
         "projectId": project_gid,

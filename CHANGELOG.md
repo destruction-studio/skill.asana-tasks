@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.9 (2026-03-17)
+- Fix: `init-write` refuses to overwrite multi-target config (prevents data loss)
+
 ## 0.8.8 (2026-03-17)
 - Hint now includes Taskana URL and token instructions
 
