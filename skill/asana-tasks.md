@@ -100,14 +100,18 @@ Once the file exists, never ask again.
 
 #### Add target flow
 
-Ask the user for three things in one message:
+First, check if a per-target token already exists: `~/.config/asana/tokens/<name>`.
+
+Ask the user for:
 1. Target name (e.g. "taskana")
 2. Base URL (e.g. `https://taskana.example.com/api/1.0`)
-3. Token (each backend has its own token — NEVER reuse the Asana token)
+3. Token — **only if** `~/.config/asana/tokens/<name>` does NOT exist. Each backend has its own token — NEVER reuse the Asana token.
 
-Then run one command:
+Then run one command (include `--token` only if user provided a new token):
 ```bash
-asana-cli add-target <name> <base_url> --token <token> --project <gid>
+asana-cli add-target <name> <base_url> --token <token>
+# or without --token if token file already exists:
+asana-cli add-target <name> <base_url>
 ```
 
 If user doesn't know the project GID, omit `--project` — the command will list available projects and ask to re-run with `--project`.

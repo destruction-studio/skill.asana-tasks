@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.4 (2026-03-17)
+- Skill: check for existing per-target token before asking user for one
+
 ## 0.9.3 (2026-03-17)
 - Fix: block `--target all` for ID-dependent commands (IDs differ between backends)
 - `--target all` only works for: list, overview, board, create, sections, members, my, search
