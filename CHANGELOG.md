@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.7 (2026-03-17)
+- Fix: reword FOR CLAUDE hint — must ask user, not auto-dismiss
+
 ## 0.8.6 (2026-03-17)
 - Change: multi-target hint now prefixed "FOR CLAUDE:" with explicit instructions to ask user
 

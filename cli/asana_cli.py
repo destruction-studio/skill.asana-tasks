@@ -68,7 +68,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.8.6"
+VERSION = "0.8.7"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -484,7 +484,7 @@ def cmd_overview(token, config):
     if raw and "targets" not in raw:
         root, _ = find_project_root()
         if root and not (root / ".claude-team" / ".multitarget-offered").exists():
-            print("FOR CLAUDE: Single-target config detected. Ask the user if they want to add another backend (e.g. Taskana) via 'asana-cli add-target <name> <base_url>'. If user declines, run 'asana-cli dismiss-multitarget'.\n")
+            print("FOR CLAUDE: Single-target config detected. You MUST ask the user: 'Want to add another backend (e.g. Taskana)?' Do NOT dismiss or skip without asking. Wait for user response.\n")
 
     project_id = config["projectId"]
     me = get_me(token)
