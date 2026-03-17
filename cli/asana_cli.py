@@ -34,6 +34,12 @@ Usage:
   asana-cli tags <id>             List tags on task
   asana-cli tag <id> <name>       Add tag (creates if not found)
   asana-cli untag <id> <name>     Remove tag
+  asana-cli deps <id>             List dependencies (blocked by)
+  asana-cli dep <id> <dep_id>     Add dependency (blocked by)
+  asana-cli undep <id> <dep_id>   Remove dependency
+  asana-cli blocks <id>           List dependents (blocking)
+  asana-cli block <id> <dep_id>   Add dependent (this blocks dep_id)
+  asana-cli unblock <id> <dep_id> Remove dependent
   asana-cli rename <id> <name>    Rename task
   asana-cli reopen <id>           Reopen completed task
   asana-cli description <id> <text>  Update task description
@@ -56,7 +62,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.6.8"
+VERSION = "0.7.0"
 BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -199,7 +205,7 @@ def cmd_my(token, config):
 
 
 def cmd_show(token, task_id):
-    fields = "name,completed,notes,assignee.name,memberships.section.name,tags.name,created_at,modified_at,due_on"
+    fields = "name,completed,notes,assignee.name,memberships.section.name,tags.name,created_at,modified_at,due_on,dependencies.name,dependents.name"
     t = api("GET", f"/tasks/{task_id}?opt_fields={fields}", token)
 
     print(f"Task: {t['name']}")
@@ -215,6 +221,12 @@ def cmd_show(token, task_id):
         print(f"Due: {t['due_on']}")
     print(f"Created: {(t.get('created_at') or '')[:10]}")
     print(f"Modified: {(t.get('modified_at') or '')[:10]}")
+    deps = t.get("dependencies", [])
+    if deps:
+        print(f"Blocked by: {', '.join(d.get('name', d['gid']) for d in deps)}")
+    dependents = t.get("dependents", [])
+    if dependents:
+        print(f"Blocking: {', '.join(d.get('name', d['gid']) for d in dependents)}")
     if t.get("notes"):
         print(f"\nNotes:\n{t['notes']}")
 
@@ -851,6 +863,54 @@ def cmd_tag_remove(token, task_id, tag_name):
     print(f"Tag '{found['name']}' removed from task {task_id}")
 
 
+def cmd_deps(token, task_id):
+    """List dependencies (tasks this task is blocked by)."""
+    deps = api("GET", f"/tasks/{task_id}/dependencies?opt_fields=name,completed", token)
+    if not deps:
+        print("No dependencies")
+        return
+    for t in deps:
+        done = "✓" if t.get("completed") else " "
+        print(f"  [{done}] {t['gid']}  {t.get('name', '?')}")
+    print(f"\nBlocked by: {len(deps)} tasks")
+
+
+def cmd_dep_add(token, task_id, dep_id):
+    api("POST", f"/tasks/{task_id}/addDependencies", token,
+        {"data": {"dependencies": [dep_id]}})
+    print(f"Task {task_id} now blocked by {dep_id}")
+
+
+def cmd_dep_remove(token, task_id, dep_id):
+    api("POST", f"/tasks/{task_id}/removeDependencies", token,
+        {"data": {"dependencies": [dep_id]}})
+    print(f"Dependency {dep_id} removed from task {task_id}")
+
+
+def cmd_blocks(token, task_id):
+    """List dependents (tasks that this task is blocking)."""
+    deps = api("GET", f"/tasks/{task_id}/dependents?opt_fields=name,completed", token)
+    if not deps:
+        print("No dependents")
+        return
+    for t in deps:
+        done = "✓" if t.get("completed") else " "
+        print(f"  [{done}] {t['gid']}  {t.get('name', '?')}")
+    print(f"\nBlocking: {len(deps)} tasks")
+
+
+def cmd_block_add(token, task_id, dep_id):
+    api("POST", f"/tasks/{task_id}/addDependents", token,
+        {"data": {"dependents": [dep_id]}})
+    print(f"Task {task_id} now blocking {dep_id}")
+
+
+def cmd_block_remove(token, task_id, dep_id):
+    api("POST", f"/tasks/{task_id}/removeDependents", token,
+        {"data": {"dependents": [dep_id]}})
+    print(f"Dependent {dep_id} removed from task {task_id}")
+
+
 def cmd_rename(token, task_id, name):
     api("PUT", f"/tasks/{task_id}", token, {"data": {"name": name}})
     print(f"Task {task_id} renamed to \"{name}\"")
@@ -1227,6 +1287,36 @@ def main():
             print("Usage: asana-cli untag <task_id> <tag_name>", file=sys.stderr)
             sys.exit(1)
         cmd_tag_remove(token, args[1], " ".join(args[2:]))
+    elif cmd == "deps":
+        if len(args) < 2:
+            print("Usage: asana-cli deps <task_id>", file=sys.stderr)
+            sys.exit(1)
+        cmd_deps(token, args[1])
+    elif cmd == "dep":
+        if len(args) < 3:
+            print("Usage: asana-cli dep <task_id> <dependency_id>", file=sys.stderr)
+            sys.exit(1)
+        cmd_dep_add(token, args[1], args[2])
+    elif cmd == "undep":
+        if len(args) < 3:
+            print("Usage: asana-cli undep <task_id> <dependency_id>", file=sys.stderr)
+            sys.exit(1)
+        cmd_dep_remove(token, args[1], args[2])
+    elif cmd == "blocks":
+        if len(args) < 2:
+            print("Usage: asana-cli blocks <task_id>", file=sys.stderr)
+            sys.exit(1)
+        cmd_blocks(token, args[1])
+    elif cmd == "block":
+        if len(args) < 3:
+            print("Usage: asana-cli block <task_id> <dependent_id>", file=sys.stderr)
+            sys.exit(1)
+        cmd_block_add(token, args[1], args[2])
+    elif cmd == "unblock":
+        if len(args) < 3:
+            print("Usage: asana-cli unblock <task_id> <dependent_id>", file=sys.stderr)
+            sys.exit(1)
+        cmd_block_remove(token, args[1], args[2])
     elif cmd == "rename":
         if len(args) < 3:
             print("Usage: asana-cli rename <task_id> <new_name>", file=sys.stderr)

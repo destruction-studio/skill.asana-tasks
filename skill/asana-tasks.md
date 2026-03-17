@@ -144,6 +144,13 @@ asana-cli subtask <id> <name>   Create subtask
 asana-cli tags <id>             List tags on task
 asana-cli tag <id> <name>       Add tag (creates if not found)
 asana-cli untag <id> <name>     Remove tag
+asana-cli deps <id>             List dependencies (blocked by)
+asana-cli dep <id> <dep_id>     Add dependency
+asana-cli undep <id> <dep_id>   Remove dependency
+asana-cli blocks <id>           List dependents (blocking)
+asana-cli block <id> <dep_id>   Add dependent
+asana-cli unblock <id> <dep_id> Remove dependent
+asana-cli rename <id> <name>    Rename task
 asana-cli reopen <id>           Reopen completed task
 asana-cli description <id> <t>  Update task description
 asana-cli history <id>          Show task activity

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.0 (2026-03-17)
+- New: `deps` — list dependencies (blocked by)
+- New: `dep` / `undep` — add/remove dependency
+- New: `blocks` — list dependents (blocking)
+- New: `block` / `unblock` — add/remove dependent
+- `show` now displays dependencies and dependents
+
 ## 0.6.8 (2026-03-16)
 - New: `rename` command — rename a task
 
