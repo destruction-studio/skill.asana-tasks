@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.5 (2026-03-17)
+- Fix: handle `null` section in task memberships (Taskana returns `section: null` for tasks without section)
+- Extract `get_task_section()` helper for safe membership access
+
 ## 0.9.4 (2026-03-17)
 - Skill: check for existing per-target token before asking user for one
 

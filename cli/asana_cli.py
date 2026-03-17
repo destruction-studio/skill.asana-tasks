@@ -69,7 +69,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.9.4"
+VERSION = "0.9.5"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -188,6 +188,15 @@ def api(method, path, token, body=None, base_url=None):
         sys.exit(1)
 
 
+def get_task_section(task):
+    """Safely extract section info from task memberships. Handles None sections."""
+    memberships = task.get("memberships") or [{}]
+    if not memberships:
+        return {}
+    m = memberships[0] or {}
+    return m.get("section") or {}
+
+
 def get_sections(token, project_id):
     """Get project sections."""
     return api("GET", f"/projects/{project_id}/sections?opt_fields=name", token)
@@ -220,13 +229,13 @@ def cmd_list(token, config, section_filter=None):
     if section_filter:
         section = find_section(token, project_id, section_filter)
         tasks = [t for t in tasks
-                 if any(m.get("section", {}).get("gid") == section["gid"]
+                 if any(((m or {}).get("section") or {}).get("gid") == section["gid"]
                         for m in t.get("memberships", []))]
 
     # Group by section
     grouped = {}
     for t in tasks:
-        sec = (t.get("memberships") or [{}])[0].get("section", {}).get("name", "No section")
+        sec = get_task_section(t).get("name", "No section")
         grouped.setdefault(sec, []).append(t)
 
     for sec, sec_tasks in grouped.items():
@@ -256,7 +265,7 @@ def cmd_my(token, config):
 
     for t in my_tasks:
         done = "✓" if t.get("completed") else " "
-        sec = (t.get("memberships") or [{}])[0].get("section", {}).get("name", "")
+        sec = get_task_section(t).get("name", "")
         print(f"[{done}] {t['gid']}  {t['name']}  ({sec})")
 
     print(f"\nTotal: {len(my_tasks)} tasks")
@@ -269,7 +278,7 @@ def cmd_show(token, task_id):
     print(f"Task: {t['name']}")
     print(f"ID: {t['gid']}")
     print(f"Status: {'Done' if t.get('completed') else 'Open'}")
-    sec = (t.get("memberships") or [{}])[0].get("section", {}).get("name", "-")
+    sec = get_task_section(t).get("name", "-")
     print(f"Section: {sec}")
     assignee = t.get("assignee")
     print(f"Assignee: {assignee['name'] if assignee else '-'}")
@@ -402,7 +411,7 @@ def cmd_search(token, config, query):
 
     for t in matched:
         done = "✓" if t.get("completed") else " "
-        sec = (t.get("memberships") or [{}])[0].get("section", {}).get("name", "")
+        sec = get_task_section(t).get("name", "")
         print(f"[{done}] {t['gid']}  {t['name']}  ({sec})")
 
     print(f"\nFound: {len(matched)}")
@@ -498,7 +507,7 @@ def cmd_overview(token, config):
     for t in tasks:
         if t.get("completed"):
             continue
-        sec_name = (t.get("memberships") or [{}])[0].get("section", {}).get("name", "")
+        sec_name = get_task_section(t).get("name", "")
         by_section.setdefault(sec_name, []).append(t)
         if t.get("assignee") and t["assignee"].get("gid") == me["gid"]:
             my_tasks.append(t)
@@ -507,7 +516,7 @@ def cmd_overview(token, config):
         for t in task_list:
             parts = []
             if show_section:
-                sec = (t.get("memberships") or [{}])[0].get("section", {}).get("name", "")
+                sec = get_task_section(t).get("name", "")
                 if sec:
                     parts.append(sec)
             assignee = t.get("assignee")
@@ -1043,7 +1052,7 @@ def cmd_board(token, config):
 
     for sec in sections:
         sec_tasks = [t for t in tasks
-                     if any(m.get("section", {}).get("gid") == sec["gid"]
+                     if any((m.get("section") or {}).get("gid") == sec["gid"]
                             for m in t.get("memberships", []))]
         if not sec_tasks:
             continue
