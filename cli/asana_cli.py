@@ -69,7 +69,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.9.6"
+VERSION = "1.0.0"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -137,15 +137,10 @@ def load_config(target_name=None):
 
 
 def load_token(target_name=None):
-    """Load token. Checks per-target file, then default, then env var."""
-    # Env var takes priority
-    token = os.environ.get("ASANA_TOKEN")
-    if token:
-        return token.strip()
-
+    """Load token. Per-target file takes priority, then default file, then env var."""
     config_dir = Path.home() / ".config" / "asana"
 
-    # Per-target token file
+    # Per-target token file (highest priority for named targets)
     if target_name and target_name not in ("default", "all"):
         target_path = config_dir / "tokens" / target_name
         if target_path.exists():
@@ -155,6 +150,11 @@ def load_token(target_name=None):
     token_path = config_dir / "token"
     if token_path.exists():
         return token_path.read_text().strip()
+
+    # Env var as last resort
+    token = os.environ.get("ASANA_TOKEN")
+    if token:
+        return token.strip()
 
     return None
 
@@ -1093,6 +1093,11 @@ def cmd_add_target(token, name, base_url, project_gid=None, target_token=None):
             pass
         token = target_token.strip()
         print(f"Token saved to {token_path}")
+    else:
+        # Try per-target token file
+        per_target = Path.home() / ".config" / "asana" / "tokens" / name
+        if per_target.exists():
+            token = per_target.read_text().strip()
 
     # Verify connection
     print(f"Connecting to {base_url}...")
@@ -1338,6 +1343,17 @@ def main():
         cmd_status()
         return
 
+    # Local config commands — no token needed
+    if args[0] == "set-target-project":
+        if len(args) < 3:
+            print("Usage: asana-cli set-target-project <target_name> <project_gid>", file=sys.stderr)
+            sys.exit(1)
+        cmd_set_target_project(args[1], args[2])
+        return
+    if args[0] == "dismiss-multitarget":
+        cmd_dismiss_multitarget()
+        return
+
     # Resolve effective target name from config default if not specified
     effective_target = target_name
     if not effective_target:
@@ -1353,11 +1369,12 @@ def main():
         print("Get a token at: https://app.asana.com/0/my-apps")
         sys.exit(1)
 
-    # If --target specified, try to resolve base URL early for pre-config commands
-    if target_name and target_name != "all":
-        raw = load_raw_config()
-        if raw and "targets" in raw and target_name in raw["targets"]:
-            ACTIVE_BASE_URL = raw["targets"][target_name].get("baseUrl", DEFAULT_BASE_URL)
+    # Resolve base URL for pre-config commands (from --target or config default)
+    raw_pre = load_raw_config()
+    if raw_pre and "targets" in raw_pre:
+        resolve_name = target_name if (target_name and target_name != "all") else raw_pre.get("default", next(iter(raw_pre["targets"])))
+        if resolve_name in raw_pre["targets"]:
+            ACTIVE_BASE_URL = raw_pre["targets"][resolve_name].get("baseUrl", DEFAULT_BASE_URL)
 
     # Commands that need token but NOT project config
     if args[0] == "whoami":
@@ -1412,15 +1429,6 @@ def main():
             i += 1
         cmd_add_target(token, at_name, at_url, at_project, at_token)
         return
-    if args[0] == "set-target-project":
-        if len(args) < 3:
-            print("Usage: asana-cli set-target-project <target_name> <project_gid>", file=sys.stderr)
-            sys.exit(1)
-        cmd_set_target_project(args[1], args[2])
-        return
-    if args[0] == "dismiss-multitarget":
-        cmd_dismiss_multitarget()
-        return
     if args[0] == "init":
         cmd_init(token)
         return
@@ -1450,6 +1458,17 @@ def main():
     multi = len(targets) > 1
     for tgt_idx, (tgt_name, config) in enumerate(targets):
         ACTIVE_BASE_URL = config["baseUrl"]
+        # Load per-target token
+        tgt_token = load_token(tgt_name)
+        if not tgt_token:
+            if multi:
+                print(f"\n═══ {tgt_name} ═══")
+                print(f"  (skipped — no token for {tgt_name})")
+                continue
+            else:
+                print(f"No token found for target '{tgt_name}'.", file=sys.stderr)
+                sys.exit(1)
+
         if multi:
             print(f"\n═══ {tgt_name} ═══")
 
@@ -1457,17 +1476,26 @@ def main():
 
         if multi:
             try:
-                _run_command(cmd, args, token, config)
-            except SystemExit:
+                _run_command(cmd, args, tgt_token, config)
+            except (SystemExit, Exception) as e:
                 print(f"  (skipped — error on {tgt_name})")
         else:
-            _run_command(cmd, args, token, config)
+            _run_command(cmd, args, tgt_token, config)
 
     return
 
 
 def _run_command(cmd, args, token, config):
     """Execute a single command against one target."""
+    # Commands that need projectId
+    needs_project = {"list", "ls", "my", "overview", "board", "sections",
+                     "section-create", "section-rename", "section-delete",
+                     "members", "search", "find", "create", "add"}
+    if cmd in needs_project and not config.get("projectId"):
+        print(f"ERROR: No projectId configured for this target.", file=sys.stderr)
+        print("Run: asana-cli set-target-project <target> <gid>", file=sys.stderr)
+        sys.exit(1)
+
     if cmd in ("list", "ls"):
         cmd_list(token, config, args[1] if len(args) > 1 else None)
     elif cmd == "my":

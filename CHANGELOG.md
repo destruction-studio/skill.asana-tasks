@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.0 (2026-03-17)
+- **Breaking fix**: per-target token loading in multi-target loop (was using single token for all)
+- Fix: per-target token file takes priority over ASANA_TOKEN env var
+- Fix: pre-config commands (whoami, projects) resolve base URL from config default
+- Fix: `--target all` catches all exceptions, not just SystemExit
+- Fix: missing projectId gives clean error instead of KeyError crash
+- Fix: `set-target-project`, `dismiss-multitarget` no longer require token
+- Fix: `add-target` without `--token` reads per-target token file
+- Codex code review: 8 issues found and fixed
+
 ## 0.9.6 (2026-03-17)
 - Fix: resolve default target name before loading token — prevents 401 when default is non-asana backend
 
