@@ -81,7 +81,41 @@ If yes → append to CLAUDE.md (create if missing):
 
 **Only after all steps above are done, proceed to work mode.**
 
-### 4. Everything configured → work mode
+### 4. Single target → offer multi-target
+
+If `.claude-team/asana.json` exists but has NO `"targets"` key (legacy single-target format):
+
+**STOP and ask:**
+> "I see you have a single Asana backend configured. Want to add another backend (e.g. Taskana)? This enables dual-write — tasks go to both systems."
+
+If yes → **Add target flow:**
+
+**Step 4a.** Ask for the target name (e.g. "taskana").
+
+**Step 4b.** Ask for the base URL (e.g. `https://taskana.example.com/api/1.0`).
+
+**Step 4c.** Ask for the token. Options:
+- Reuse current token (`~/.config/asana/token`)
+- Provide a new token → save to `~/.config/asana/tokens/<name>`
+
+**Step 4d.** Test connection: run `asana-cli --target <name> whoami` to verify.
+
+**Step 4e.** Run `asana-cli --target <name> projects` to list available projects. Ask user to pick one.
+
+**Step 4f.** Migrate config: read `.claude-team/asana.json`, convert from legacy to multi-target format:
+- Current config becomes `"targets": { "asana": { ...current... } }`
+- New target added: `"targets": { "<name>": { "baseUrl": "...", "projectId": "...", "workspaceId": "..." } }`
+- Set `"default": "asana"` (keep current as default)
+- Preserve `prefixes`, `phases` at top level
+
+**Step 4g.** Ask: "Want to set the new target as default?"
+If yes → update `"default"` field.
+
+**Step 4h.** Done. Tell user to commit updated `asana.json`.
+
+If no (user doesn't want multi-target) → proceed to work mode.
+
+### 5. Everything configured → work mode
 
 Read `.claude-team/asana.json` for project config.
 If `.claude-team/RULES.md` exists, read it and follow the workflow rules defined there.

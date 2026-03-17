@@ -66,7 +66,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.8.0"
+VERSION = "0.8.1"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -1132,6 +1132,8 @@ def main():
         print(__doc__.strip())
         return
 
+    global ACTIVE_BASE_URL
+
     # Extract --target flag before command parsing
     target_name = None
     filtered_args = []
@@ -1184,6 +1186,12 @@ def main():
         print("Get a token at: https://app.asana.com/0/my-apps")
         sys.exit(1)
 
+    # If --target specified, try to resolve base URL early for pre-config commands
+    if target_name and target_name != "all":
+        raw = load_raw_config()
+        if raw and "targets" in raw and target_name in raw["targets"]:
+            ACTIVE_BASE_URL = raw["targets"][target_name].get("baseUrl", DEFAULT_BASE_URL)
+
     # Commands that need token but NOT project config
     if args[0] == "whoami":
         cmd_whoami(token)
@@ -1228,7 +1236,6 @@ def main():
         return
 
     # Commands that need project config — resolve targets
-    global ACTIVE_BASE_URL
     raw = load_raw_config()
     targets = resolve_targets(raw, target_name)
 

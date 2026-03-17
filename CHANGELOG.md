@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.1 (2026-03-17)
+- Skill: add target flow — offers to add Taskana when single-target config detected
+- Fix: `--target` now works for `whoami`, `workspaces`, `projects` (resolves base URL early)
+- Fix: global declaration order for ACTIVE_BASE_URL
+
 ## 0.8.0 (2026-03-17)
 - New: multi-target support (`--target <name>`, `--target all`)
 - Config supports `targets` map with `default` key
