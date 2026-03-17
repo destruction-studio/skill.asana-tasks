@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.8 (2026-03-17)
+- Hint now includes Taskana URL and token instructions
+
 ## 0.8.7 (2026-03-17)
 - Fix: reword FOR CLAUDE hint — must ask user, not auto-dismiss
 
