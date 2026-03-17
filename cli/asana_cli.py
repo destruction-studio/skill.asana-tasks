@@ -52,7 +52,8 @@ Usage:
   asana-cli section-create <name>    Create section
   asana-cli section-rename <s> <new> Rename section
   asana-cli section-delete <section> Delete section
-  asana-cli add-target <name>     Add another backend (e.g. taskana)
+  asana-cli add-target <name> <url> [--project <gid>]  Add backend
+  asana-cli set-target-project <target> <gid>         Set project for target
   asana-cli dismiss-multitarget   Don't ask about multi-target again
   asana-cli update                Update CLI + skill
 
@@ -68,7 +69,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.8.9"
+VERSION = "0.9.0"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -1060,13 +1061,46 @@ def cmd_board(token, config):
         print("└─")
 
 
-def cmd_add_target(token, name, base_url):
-    """Add a new target to .claude-team/asana.json, migrating from legacy if needed."""
+def cmd_add_target(token, name, base_url, project_gid=None):
+    """Add a new target to .claude-team/asana.json, migrating from legacy if needed.
+    Auto-resolves workspaceId. If --project given, fully configures in one call."""
     root, config_path = find_project_root()
     if not config_path:
         print("No .claude-team/asana.json found.", file=sys.stderr)
         sys.exit(1)
 
+    base_url = base_url.rstrip("/")
+
+    # Verify connection
+    print(f"Connecting to {base_url}...")
+    me = api("GET", "/users/me?opt_fields=name,email,gid", token, base_url=base_url)
+    print(f"Authenticated as: {me['name']} ({me.get('email', '-')})")
+
+    # Resolve workspace
+    workspaces = api("GET", "/workspaces?opt_fields=name,gid", token, base_url=base_url)
+    if not workspaces:
+        print("No workspaces found.", file=sys.stderr)
+        sys.exit(1)
+    if len(workspaces) == 1:
+        ws = workspaces[0]
+    else:
+        print("\nAvailable workspaces:")
+        for w in workspaces:
+            print(f"  {w['gid']}  {w['name']}")
+        print("\nMultiple workspaces. Specify with --workspace.")
+        sys.exit(1)
+    print(f"Workspace: {ws['name']} ({ws['gid']})")
+
+    # List projects
+    projects = api("GET",
+        f"/workspaces/{ws['gid']}/projects?opt_fields=name,gid,archived&limit=100",
+        token, base_url=base_url)
+    active = [p for p in projects if not p.get("archived")]
+    print(f"\nAvailable projects ({len(active)}):")
+    for i, p in enumerate(active, 1):
+        print(f"  {i}. {p['name']}  ({p['gid']})")
+
+    # Read existing config
     with open(config_path) as f:
         raw = json.load(f)
 
@@ -1082,15 +1116,56 @@ def cmd_add_target(token, name, base_url):
         }
 
     # Add new target
-    raw["targets"][name] = {"baseUrl": base_url.rstrip("/")}
+    target_data = {
+        "baseUrl": base_url,
+        "workspaceId": ws["gid"],
+    }
+
+    if project_gid:
+        # Validate project exists
+        found = next((p for p in active if p["gid"] == project_gid), None)
+        if not found:
+            print(f"Project {project_gid} not found in workspace.", file=sys.stderr)
+            sys.exit(1)
+        target_data["projectId"] = project_gid
+        print(f"\nProject: {found['name']} ({found['gid']})")
+    else:
+        print("\nFOR CLAUDE: Ask user to pick a project number. Then re-run: asana-cli add-target {name} {base_url} --project <gid>")
+
+    raw["targets"][name] = target_data
 
     with open(config_path, "w") as f:
         json.dump(raw, f, indent=2, ensure_ascii=False)
         f.write("\n")
 
-    print(f"Target '{name}' added (baseUrl: {base_url})")
+    if project_gid:
+        print(f"\nTarget '{name}' fully configured.")
+    else:
+        print(f"\nTarget '{name}' added (no project yet).")
     print(f"Config: {config_path}")
-    print(f"\nNext: run 'asana-cli --target {name} projects' to pick a project")
+
+
+def cmd_set_target_project(target_name, project_gid):
+    """Set projectId for a target in multi-target config."""
+    _, config_path = find_project_root()
+    if not config_path:
+        print("No .claude-team/asana.json found.", file=sys.stderr)
+        sys.exit(1)
+
+    with open(config_path) as f:
+        raw = json.load(f)
+
+    if "targets" not in raw or target_name not in raw["targets"]:
+        print(f"Target '{target_name}' not found in config.", file=sys.stderr)
+        sys.exit(1)
+
+    raw["targets"][target_name]["projectId"] = project_gid
+
+    with open(config_path, "w") as f:
+        json.dump(raw, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+
+    print(f"Target '{target_name}' projectId set to {project_gid}")
 
 
 def cmd_dismiss_multitarget():
@@ -1289,10 +1364,25 @@ def main():
         return
     if args[0] == "add-target":
         if len(args) < 3:
-            print("Usage: asana-cli add-target <name> <base_url>", file=sys.stderr)
-            print("Example: asana-cli add-target taskana https://taskana.example.com/api/1.0")
+            print("Usage: asana-cli add-target <name> <base_url> [--project <gid>]", file=sys.stderr)
+            print("Example: asana-cli add-target taskana https://taskana.example.com/api/1.0 --project 12")
             sys.exit(1)
-        cmd_add_target(token, args[1], args[2])
+        at_name = args[1]
+        at_url = args[2]
+        at_project = None
+        i = 3
+        while i < len(args):
+            if args[i] in ("--project", "-p"):
+                i += 1
+                at_project = args[i] if i < len(args) else None
+            i += 1
+        cmd_add_target(token, at_name, at_url, at_project)
+        return
+    if args[0] == "set-target-project":
+        if len(args) < 3:
+            print("Usage: asana-cli set-target-project <target_name> <project_gid>", file=sys.stderr)
+            sys.exit(1)
+        cmd_set_target_project(args[1], args[2])
         return
     if args[0] == "dismiss-multitarget":
         cmd_dismiss_multitarget()

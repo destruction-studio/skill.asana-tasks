@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.0 (2026-03-17)
+- `add-target` now fully configures in one call: verifies connection, resolves workspace, validates project
+- New: `--project` flag for `add-target` (e.g. `add-target taskana https://... --project 12`)
+- New: `set-target-project` command for post-hoc project assignment
+- Preserves prefixes, phases when migrating legacy → multi-target
+
 ## 0.8.9 (2026-03-17)
 - Fix: `init-write` refuses to overwrite multi-target config (prevents data loss)
 
