@@ -69,7 +69,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "0.9.2"
+VERSION = "0.9.3"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -1418,6 +1418,18 @@ def main():
     # Commands that need project config — resolve targets
     raw = load_raw_config()
     targets = resolve_targets(raw, target_name)
+
+    # Block --target all for ID-dependent commands (IDs differ between backends)
+    if target_name == "all" and len(targets) > 1:
+        id_commands = {"show", "done", "start", "move", "assign", "unassign",
+                       "watch", "unwatch", "due", "comment", "subtasks", "subtask",
+                       "tags", "tag", "untag", "deps", "dep", "undep",
+                       "blocks", "block", "unblock", "rename", "reopen",
+                       "description", "history"}
+        if args[0] in id_commands:
+            print(f"ERROR: '--target all' cannot be used with '{args[0]}' — task IDs differ between backends.", file=sys.stderr)
+            print("Use '--target <name>' to specify which backend.", file=sys.stderr)
+            sys.exit(1)
 
     multi = len(targets) > 1
     for tgt_idx, (tgt_name, config) in enumerate(targets):

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.3 (2026-03-17)
+- Fix: block `--target all` for ID-dependent commands (IDs differ between backends)
+- `--target all` only works for: list, overview, board, create, sections, members, my, search
+
 ## 0.9.2 (2026-03-17)
 - Skill: simplified add-target flow — ask all 3 params at once, never offer to reuse Asana token
 
