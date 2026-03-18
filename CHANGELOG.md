@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.1 (2026-03-18)
+- Fix: `search` now uses server-side API (`/workspaces/:gid/tasks/search`) instead of client-side filtering
+- Searches title + description, no 100-task limit, finds all tasks
+
 ## 1.0.0 (2026-03-17)
 - **Breaking fix**: per-target token loading in multi-target loop (was using single token for all)
 - Fix: per-target token file takes priority over ASANA_TOKEN env var

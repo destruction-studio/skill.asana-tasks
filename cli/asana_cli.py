@@ -69,7 +69,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -399,11 +399,21 @@ def cmd_section_delete(token, config, section_name):
 
 
 def cmd_search(token, config, query):
-    project_id = config["projectId"]
-    fields = "name,completed,memberships.section.name,assignee.name"
-    tasks = api("GET", f"/projects/{project_id}/tasks?opt_fields={fields}&limit=100", token)
-    lower = query.lower()
-    matched = [t for t in tasks if lower in t["name"].lower()]
+    workspace_id = config.get("workspaceId")
+    if workspace_id:
+        # Use server-side search (fulltext, searches title + description)
+        import urllib.parse
+        encoded = urllib.parse.quote(query)
+        matched = api("GET",
+                       f"/workspaces/{workspace_id}/tasks/search?text={encoded}&opt_fields=name,completed,memberships.section.name,assignee.name",
+                       token)
+    else:
+        # Fallback: client-side filter
+        project_id = config["projectId"]
+        fields = "name,completed,memberships.section.name,assignee.name"
+        tasks = api("GET", f"/projects/{project_id}/tasks?opt_fields={fields}&limit=100", token)
+        lower = query.lower()
+        matched = [t for t in tasks if lower in t["name"].lower()]
 
     if not matched:
         print("No tasks found")
