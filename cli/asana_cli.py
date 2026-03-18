@@ -69,7 +69,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "1.1.2"
+VERSION = "1.1.3"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -469,14 +469,20 @@ def cmd_whoami(token):
     print(f"GID: {me['gid']}")
 
 
-def cmd_auth(token_value=None):
-    """Save token to ~/.config/asana/token."""
-    token_dir = Path.home() / ".config" / "asana"
-    token_path = token_dir / "token"
+def cmd_auth(token_value=None, target_name=None):
+    """Save token. --target saves to per-target file, otherwise default."""
+    config_dir = Path.home() / ".config" / "asana"
+
+    if target_name:
+        token_dir = config_dir / "tokens"
+        token_path = token_dir / target_name
+    else:
+        token_dir = config_dir
+        token_path = token_dir / "token"
 
     if not token_value:
         print("No token provided.")
-        print("Usage: asana-cli auth <token>")
+        print("Usage: asana-cli auth <token> [--target <name>]")
         print("")
         print("To create a token:")
         print("  1. Go to https://app.asana.com/0/my-apps")
@@ -492,7 +498,12 @@ def cmd_auth(token_value=None):
     except OSError:
         pass
 
-    # Verify token works
+    # Verify token works — resolve base URL for target if possible
+    if target_name:
+        raw = load_raw_config()
+        if raw and "targets" in raw and target_name in raw["targets"]:
+            global ACTIVE_BASE_URL
+            ACTIVE_BASE_URL = raw["targets"][target_name].get("baseUrl", DEFAULT_BASE_URL)
     me = get_me(token_value.strip())
     print(f"Token saved to {token_path}")
     print(f"Authenticated as: {me['name']} ({me.get('email', '-')})")
@@ -1383,7 +1394,7 @@ def main():
 
     # auth doesn't need existing token
     if args[0] == "auth":
-        cmd_auth(args[1] if len(args) > 1 else None)
+        cmd_auth(args[1] if len(args) > 1 else None, target_name=target_name)
         return
 
     # status works with or without token
