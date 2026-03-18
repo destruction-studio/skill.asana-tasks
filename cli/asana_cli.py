@@ -69,7 +69,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "1.1.3"
+VERSION = "1.1.4"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -1201,6 +1201,17 @@ def cmd_add_target(token, name, base_url, project_gid=None, target_token=None):
             "targets": {"asana": legacy},
             "default": "asana",
         }
+        # Copy default token to per-target file so --target asana works
+        default_token_path = Path.home() / ".config" / "asana" / "token"
+        asana_token_path = Path.home() / ".config" / "asana" / "tokens" / "asana"
+        if default_token_path.exists() and not asana_token_path.exists():
+            asana_token_path.parent.mkdir(parents=True, exist_ok=True)
+            asana_token_path.write_text(default_token_path.read_text())
+            try:
+                asana_token_path.chmod(0o600)
+            except OSError:
+                pass
+            print("Copied default token → ~/.config/asana/tokens/asana")
 
     # Add new target
     target_data = {

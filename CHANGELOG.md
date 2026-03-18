@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.4 (2026-03-18)
+- Fix: `add-target` copies default token to `tokens/asana` during legacy→multi-target migration
+
 ## 1.1.3 (2026-03-18)
 - New: `auth` supports `--target` flag — `asana-cli auth <token> --target taskana` saves per-target token
 - Verifies token against target's base URL when config exists
