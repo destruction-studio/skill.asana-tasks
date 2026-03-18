@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.2.1 (2026-03-18)
+- New: `estimate <task_id> <hours>` — set task estimate, auto-creates "Estimate" field if missing
+
 ## 1.2.0 (2026-03-18)
 - New: `custom-fields` — list project custom fields
 - New: `custom-field-create <name> <type>` — create custom field (text, number, enum, date)

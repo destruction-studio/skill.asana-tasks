@@ -69,7 +69,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -1143,6 +1143,21 @@ def cmd_task_field_set(token, task_id, field_id, value):
     print(f"Field {field_id} set to \"{value}\" on task {task_id}")
 
 
+def cmd_estimate(token, config, task_id, hours):
+    """Set estimate on a task. Auto-creates Estimate field if missing."""
+    project_id = config["projectId"]
+    fields = api("GET", f"/projects/{project_id}/custom_fields", token)
+    estimate_field = next(
+        (f for f in (fields or []) if f["name"].lower() == "estimate"), None)
+    if not estimate_field:
+        estimate_field = api("POST", f"/projects/{project_id}/custom_fields", token,
+                             {"data": {"name": "Estimate", "type": "number"}})
+        print(f"Created field: Estimate ({estimate_field['gid']})")
+    api("PUT", f"/tasks/{task_id}/custom_fields/{estimate_field['gid']}", token,
+        {"data": {"value": hours}})
+    print(f"Task {task_id} estimate set to {hours}h")
+
+
 def cmd_board(token, config):
     project_id = config["projectId"]
     sections = get_sections(token, project_id)
@@ -1559,7 +1574,8 @@ def main():
                        "watch", "unwatch", "due", "comment", "subtasks", "subtask",
                        "tags", "tag", "untag", "deps", "dep", "undep",
                        "blocks", "block", "unblock", "rename", "reopen",
-                       "description", "history", "task-fields", "task-field-set"}
+                       "description", "history", "task-fields", "task-field-set",
+                       "estimate"}
         if args[0] in id_commands:
             print(f"ERROR: '--target all' cannot be used with '{args[0]}' — task IDs differ between backends.", file=sys.stderr)
             print("Use '--target <name>' to specify which backend.", file=sys.stderr)
@@ -1601,7 +1617,7 @@ def _run_command(cmd, args, token, config):
     needs_project = {"list", "ls", "my", "overview", "board", "sections",
                      "section-create", "section-rename", "section-delete",
                      "members", "search", "find", "create", "add",
-                     "custom-fields", "custom-field-create"}
+                     "custom-fields", "custom-field-create", "estimate"}
     if cmd in needs_project and not config.get("projectId"):
         print(f"ERROR: No projectId configured for this target.", file=sys.stderr)
         print("Run: asana-cli set-target-project <target> <gid>", file=sys.stderr)
@@ -1817,6 +1833,11 @@ def _run_command(cmd, args, token, config):
             print("Usage: asana-cli task-field-set <task_id> <field_id> <value>", file=sys.stderr)
             sys.exit(1)
         cmd_task_field_set(token, args[1], args[2], " ".join(args[3:]))
+    elif cmd == "estimate":
+        if len(args) < 3:
+            print("Usage: asana-cli estimate <task_id> <hours>", file=sys.stderr)
+            sys.exit(1)
+        cmd_estimate(token, config, args[1], args[2])
     else:
         print(f"Unknown command: {cmd}", file=sys.stderr)
         print("Run 'asana-cli help' for usage.", file=sys.stderr)
