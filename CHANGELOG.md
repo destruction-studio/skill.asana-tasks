@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1 (2026-03-18)
+- Fix: `limit=500` broke Asana API (max 100) — now dynamic: 500 for Taskana, 100 for Asana
+- New: auto-pagination in `api()` — follows Asana `next_page` links for 100+ task projects
+- New: `task_limit()` helper — returns correct limit per backend
+
 ## 1.1.0 (2026-03-18)
 - New: server-side filtering for Taskana backends (non-Asana base URL)
   - `overview`: `completed=false` — skip completed tasks at API level

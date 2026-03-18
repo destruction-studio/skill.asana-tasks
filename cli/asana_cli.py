@@ -69,7 +69,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -167,9 +167,15 @@ def is_taskana():
     return ACTIVE_BASE_URL != DEFAULT_BASE_URL
 
 
+def task_limit():
+    """Max tasks per request: 500 for Taskana, 100 for Asana (API max)."""
+    return 500 if is_taskana() else 100
+
+
 def api(method, path, token, body=None, base_url=None):
-    """Make API request."""
-    url = f"{base_url or ACTIVE_BASE_URL}{path}"
+    """Make API request. Auto-paginates list responses (Asana next_page)."""
+    resolved_base = base_url or ACTIVE_BASE_URL
+    url = f"{resolved_base}{path}"
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
@@ -181,7 +187,20 @@ def api(method, path, token, body=None, base_url=None):
     try:
         with urllib.request.urlopen(req) as resp:
             result = json.loads(resp.read().decode())
-            return result.get("data")
+            items = result.get("data")
+
+            # Auto-paginate list responses
+            next_page = result.get("next_page")
+            if next_page and isinstance(items, list):
+                while next_page:
+                    next_url = f"{resolved_base}{next_page['path']}"
+                    req2 = urllib.request.Request(next_url, headers=headers, method="GET")
+                    with urllib.request.urlopen(req2) as resp2:
+                        result2 = json.loads(resp2.read().decode())
+                        items.extend(result2.get("data", []))
+                        next_page = result2.get("next_page")
+
+            return items
     except urllib.error.HTTPError as e:
         error_body = e.read().decode()
         try:
@@ -229,7 +248,7 @@ def get_me(token):
 def cmd_list(token, config, section_filter=None):
     project_id = config["projectId"]
     fields = "name,completed,assignee.name,memberships.section.name,tags.name"
-    url = f"/projects/{project_id}/tasks?opt_fields={fields}&limit=500"
+    url = f"/projects/{project_id}/tasks?opt_fields={fields}&limit={task_limit()}"
 
     section = None
     if section_filter:
@@ -266,7 +285,7 @@ def cmd_my(token, config):
     project_id = config["projectId"]
     me = get_me(token)
     fields = "name,completed,assignee.gid,memberships.section.name"
-    url = f"/projects/{project_id}/tasks?opt_fields={fields}&limit=500"
+    url = f"/projects/{project_id}/tasks?opt_fields={fields}&limit={task_limit()}"
     if is_taskana():
         url += f"&assignee={me['gid']}"
     tasks = api("GET", url, token)
@@ -427,7 +446,7 @@ def cmd_search(token, config, query):
         # Fallback: client-side filter
         project_id = config["projectId"]
         fields = "name,completed,memberships.section.name,assignee.name"
-        tasks = api("GET", f"/projects/{project_id}/tasks?opt_fields={fields}&limit=500", token)
+        tasks = api("GET", f"/projects/{project_id}/tasks?opt_fields={fields}&limit={task_limit()}", token)
         lower = query.lower()
         matched = [t for t in tasks if lower in t["name"].lower()]
 
@@ -525,7 +544,7 @@ def cmd_overview(token, config):
     project_id = config["projectId"]
     me = get_me(token)
     fields = "name,completed,assignee.gid,assignee.name,memberships.section.name,memberships.section.gid,due_on"
-    url = f"/projects/{project_id}/tasks?opt_fields={fields}&limit=500"
+    url = f"/projects/{project_id}/tasks?opt_fields={fields}&limit={task_limit()}"
     if is_taskana():
         url += "&completed=false"
     tasks = api("GET", url, token)
@@ -1077,7 +1096,7 @@ def cmd_board(token, config):
     project_id = config["projectId"]
     sections = get_sections(token, project_id)
     fields = "name,completed,assignee.name,due_on"
-    tasks = api("GET", f"/projects/{project_id}/tasks?opt_fields={fields},memberships.section.gid&limit=500", token)
+    tasks = api("GET", f"/projects/{project_id}/tasks?opt_fields={fields},memberships.section.gid&limit={task_limit()}", token)
 
     for sec in sections:
         sec_tasks = [t for t in tasks
