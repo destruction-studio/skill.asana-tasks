@@ -69,7 +69,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "1.0.2"
+VERSION = "1.1.0"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -162,6 +162,11 @@ def load_token(target_name=None):
 ACTIVE_BASE_URL = DEFAULT_BASE_URL
 
 
+def is_taskana():
+    """True when talking to a non-Asana backend (Taskana etc.)."""
+    return ACTIVE_BASE_URL != DEFAULT_BASE_URL
+
+
 def api(method, path, token, body=None, base_url=None):
     """Make API request."""
     url = f"{base_url or ACTIVE_BASE_URL}{path}"
@@ -224,10 +229,17 @@ def get_me(token):
 def cmd_list(token, config, section_filter=None):
     project_id = config["projectId"]
     fields = "name,completed,assignee.name,memberships.section.name,tags.name"
-    tasks = api("GET", f"/projects/{project_id}/tasks?opt_fields={fields}&limit=500", token)
+    url = f"/projects/{project_id}/tasks?opt_fields={fields}&limit=500"
 
+    section = None
     if section_filter:
         section = find_section(token, project_id, section_filter)
+        if is_taskana():
+            url += f"&section={section['gid']}"
+
+    tasks = api("GET", url, token)
+
+    if section_filter:
         tasks = [t for t in tasks
                  if any(((m or {}).get("section") or {}).get("gid") == section["gid"]
                         for m in t.get("memberships", []))]
@@ -254,7 +266,10 @@ def cmd_my(token, config):
     project_id = config["projectId"]
     me = get_me(token)
     fields = "name,completed,assignee.gid,memberships.section.name"
-    tasks = api("GET", f"/projects/{project_id}/tasks?opt_fields={fields}&limit=500", token)
+    url = f"/projects/{project_id}/tasks?opt_fields={fields}&limit=500"
+    if is_taskana():
+        url += f"&assignee={me['gid']}"
+    tasks = api("GET", url, token)
 
     my_tasks = [t for t in tasks
                 if t.get("assignee") and t["assignee"].get("gid") == me["gid"]]
@@ -404,9 +419,10 @@ def cmd_search(token, config, query):
         # Use server-side search (fulltext, searches title + description)
         import urllib.parse
         encoded = urllib.parse.quote(query)
-        matched = api("GET",
-                       f"/workspaces/{workspace_id}/tasks/search?text={encoded}&opt_fields=name,completed,memberships.section.name,assignee.name",
-                       token)
+        search_url = f"/workspaces/{workspace_id}/tasks/search?text={encoded}&opt_fields=name,completed,memberships.section.name,assignee.name"
+        if is_taskana():
+            search_url += "&limit=100"
+        matched = api("GET", search_url, token)
     else:
         # Fallback: client-side filter
         project_id = config["projectId"]
@@ -509,7 +525,10 @@ def cmd_overview(token, config):
     project_id = config["projectId"]
     me = get_me(token)
     fields = "name,completed,assignee.gid,assignee.name,memberships.section.name,memberships.section.gid,due_on"
-    tasks = api("GET", f"/projects/{project_id}/tasks?opt_fields={fields}&limit=500", token)
+    url = f"/projects/{project_id}/tasks?opt_fields={fields}&limit=500"
+    if is_taskana():
+        url += "&completed=false"
+    tasks = api("GET", url, token)
 
     # Categorize
     my_tasks = []

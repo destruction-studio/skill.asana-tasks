@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.0 (2026-03-18)
+- New: server-side filtering for Taskana backends (non-Asana base URL)
+  - `overview`: `completed=false` — skip completed tasks at API level
+  - `list <section>`: `section=<gid>` — filter by section server-side
+  - `my`: `assignee=<gid>` — filter by assignee server-side
+  - `search`: `limit=100` — max results instead of default 50
+- Client-side filters kept as fallback for Asana compatibility
+- New: `is_taskana()` helper — detects non-Asana backend by base URL
+
 ## 1.0.2 (2026-03-18)
 - Fix: raise task fetch limit from 100 to 500 (was silently dropping tasks)
 
