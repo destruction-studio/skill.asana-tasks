@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.2 (2026-03-18)
+- Skill: `overview` uses `--target all` when multi-target config detected
+
 ## 1.1.1 (2026-03-18)
 - Fix: `limit=500` broke Asana API (max 100) — now dynamic: 500 for Taskana, 100 for Asana
 - New: auto-pagination in `api()` — follows Asana `next_page` links for 100+ task projects

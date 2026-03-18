@@ -124,8 +124,14 @@ Tell user to commit updated `asana.json`.
 
 ### When developer asks "what to work on?" or similar:
 
+If `.claude-team/asana.json` has `"targets"` key (multi-target config):
 ```bash
-asana-cli overview              # single call: my tasks + review + todo + in progress + bugs
+asana-cli overview --target all
+```
+
+Otherwise (single target):
+```bash
+asana-cli overview
 ```
 
 Present the results and ask what to pick.
