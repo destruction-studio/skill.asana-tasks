@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.0 (2026-03-18)
+- New: `custom-fields` — list project custom fields
+- New: `custom-field-create <name> <type>` — create custom field (text, number, enum, date)
+- New: `task-fields <task_id>` — list custom field values on a task
+- New: `task-field-set <task_id> <field_id> <value>` — set custom field value
+- Taskana compat API custom fields endpoints (`/api/1.0/`)
+
 ## 1.1.4 (2026-03-18)
 - Fix: `add-target` copies default token to `tokens/asana` during legacy→multi-target migration
 

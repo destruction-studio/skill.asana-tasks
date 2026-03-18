@@ -69,7 +69,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "1.1.4"
+VERSION = "1.2.0"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -1103,6 +1103,46 @@ def cmd_members(token, config):
     print(f"\nTotal: {len(members)} members")
 
 
+def cmd_custom_fields(token, config):
+    """List custom fields for the project."""
+    project_id = config["projectId"]
+    fields = api("GET", f"/projects/{project_id}/custom_fields", token)
+    if not fields:
+        print("No custom fields")
+        return
+    for f in fields:
+        ftype = f.get("type") or f.get("fieldType") or "?"
+        print(f"  {f['gid']}  {f['name']}  ({ftype})")
+    print(f"\nTotal: {len(fields)} fields")
+
+
+def cmd_custom_field_create(token, config, name, field_type):
+    """Create a custom field on the project."""
+    project_id = config["projectId"]
+    field = api("POST", f"/projects/{project_id}/custom_fields", token,
+                {"data": {"name": name, "type": field_type}})
+    print(f"Created field: {field['gid']}  {field['name']}  ({field_type})")
+
+
+def cmd_task_fields(token, task_id):
+    """List custom field values for a task."""
+    values = api("GET", f"/tasks/{task_id}/custom_fields", token)
+    if not values:
+        print("No custom field values")
+        return
+    for v in values:
+        name = v.get("name", v.get("gid", "?"))
+        val = v.get("value") or v.get("display_value") or v.get("text_value") or "-"
+        print(f"  {v['gid']}  {name}: {val}")
+
+
+def cmd_task_field_set(token, task_id, field_id, value):
+    """Set a custom field value on a task."""
+    api("PUT", f"/tasks/{task_id}/custom_fields/{field_id}", token,
+        {"data": {"value": value}})
+    print(f"Field {field_id} set to \"{value}\" on task {task_id}")
+
+
 def cmd_board(token, config):
     project_id = config["projectId"]
     sections = get_sections(token, project_id)
@@ -1519,7 +1559,7 @@ def main():
                        "watch", "unwatch", "due", "comment", "subtasks", "subtask",
                        "tags", "tag", "untag", "deps", "dep", "undep",
                        "blocks", "block", "unblock", "rename", "reopen",
-                       "description", "history"}
+                       "description", "history", "task-fields", "task-field-set"}
         if args[0] in id_commands:
             print(f"ERROR: '--target all' cannot be used with '{args[0]}' — task IDs differ between backends.", file=sys.stderr)
             print("Use '--target <name>' to specify which backend.", file=sys.stderr)
@@ -1560,7 +1600,8 @@ def _run_command(cmd, args, token, config):
     # Commands that need projectId
     needs_project = {"list", "ls", "my", "overview", "board", "sections",
                      "section-create", "section-rename", "section-delete",
-                     "members", "search", "find", "create", "add"}
+                     "members", "search", "find", "create", "add",
+                     "custom-fields", "custom-field-create"}
     if cmd in needs_project and not config.get("projectId"):
         print(f"ERROR: No projectId configured for this target.", file=sys.stderr)
         print("Run: asana-cli set-target-project <target> <gid>", file=sys.stderr)
@@ -1758,6 +1799,24 @@ def _run_command(cmd, args, token, config):
         cmd_members(token, config)
     elif cmd == "board":
         cmd_board(token, config)
+    elif cmd == "custom-fields":
+        cmd_custom_fields(token, config)
+    elif cmd == "custom-field-create":
+        if len(args) < 3:
+            print("Usage: asana-cli custom-field-create <name> <type>", file=sys.stderr)
+            print("Types: text, number, enum, date", file=sys.stderr)
+            sys.exit(1)
+        cmd_custom_field_create(token, config, args[1], args[2])
+    elif cmd == "task-fields":
+        if len(args) < 2:
+            print("Usage: asana-cli task-fields <task_id>", file=sys.stderr)
+            sys.exit(1)
+        cmd_task_fields(token, args[1])
+    elif cmd == "task-field-set":
+        if len(args) < 4:
+            print("Usage: asana-cli task-field-set <task_id> <field_id> <value>", file=sys.stderr)
+            sys.exit(1)
+        cmd_task_field_set(token, args[1], args[2], " ".join(args[3:]))
     else:
         print(f"Unknown command: {cmd}", file=sys.stderr)
         print("Run 'asana-cli help' for usage.", file=sys.stderr)
