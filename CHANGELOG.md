@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.0.2 (2026-03-18)
+- Fix: raise task fetch limit from 100 to 500 (was silently dropping tasks)
+
 ## 1.0.1 (2026-03-18)
 - Fix: `search` now uses server-side API (`/workspaces/:gid/tasks/search`) instead of client-side filtering
 - Searches title + description, no 100-task limit, finds all tasks

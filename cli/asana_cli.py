@@ -69,7 +69,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -224,7 +224,7 @@ def get_me(token):
 def cmd_list(token, config, section_filter=None):
     project_id = config["projectId"]
     fields = "name,completed,assignee.name,memberships.section.name,tags.name"
-    tasks = api("GET", f"/projects/{project_id}/tasks?opt_fields={fields}&limit=100", token)
+    tasks = api("GET", f"/projects/{project_id}/tasks?opt_fields={fields}&limit=500", token)
 
     if section_filter:
         section = find_section(token, project_id, section_filter)
@@ -254,7 +254,7 @@ def cmd_my(token, config):
     project_id = config["projectId"]
     me = get_me(token)
     fields = "name,completed,assignee.gid,memberships.section.name"
-    tasks = api("GET", f"/projects/{project_id}/tasks?opt_fields={fields}&limit=100", token)
+    tasks = api("GET", f"/projects/{project_id}/tasks?opt_fields={fields}&limit=500", token)
 
     my_tasks = [t for t in tasks
                 if t.get("assignee") and t["assignee"].get("gid") == me["gid"]]
@@ -411,7 +411,7 @@ def cmd_search(token, config, query):
         # Fallback: client-side filter
         project_id = config["projectId"]
         fields = "name,completed,memberships.section.name,assignee.name"
-        tasks = api("GET", f"/projects/{project_id}/tasks?opt_fields={fields}&limit=100", token)
+        tasks = api("GET", f"/projects/{project_id}/tasks?opt_fields={fields}&limit=500", token)
         lower = query.lower()
         matched = [t for t in tasks if lower in t["name"].lower()]
 
@@ -509,7 +509,7 @@ def cmd_overview(token, config):
     project_id = config["projectId"]
     me = get_me(token)
     fields = "name,completed,assignee.gid,assignee.name,memberships.section.name,memberships.section.gid,due_on"
-    tasks = api("GET", f"/projects/{project_id}/tasks?opt_fields={fields}&limit=100", token)
+    tasks = api("GET", f"/projects/{project_id}/tasks?opt_fields={fields}&limit=500", token)
 
     # Categorize
     my_tasks = []
@@ -1058,7 +1058,7 @@ def cmd_board(token, config):
     project_id = config["projectId"]
     sections = get_sections(token, project_id)
     fields = "name,completed,assignee.name,due_on"
-    tasks = api("GET", f"/projects/{project_id}/tasks?opt_fields={fields},memberships.section.gid&limit=100", token)
+    tasks = api("GET", f"/projects/{project_id}/tasks?opt_fields={fields},memberships.section.gid&limit=500", token)
 
     for sec in sections:
         sec_tasks = [t for t in tasks
