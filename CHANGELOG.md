@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.2.3 (2026-03-19)
+- Fix: `search` uses server-side API only for Taskana, client-side filter for Asana (no premium needed)
+
 ## 1.2.2 (2026-03-19)
 - Skill: offer time estimate after `start`, add `estimate` to workflow
 - CLI help: add custom fields and estimate commands to usage text

@@ -74,7 +74,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "1.2.2"
+VERSION = "1.2.3"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -439,17 +439,18 @@ def cmd_section_delete(token, config, section_name):
 
 def cmd_search(token, config, query):
     workspace_id = config.get("workspaceId")
-    if workspace_id:
-        # Use server-side search (fulltext, searches title + description)
+    project_id = config.get("projectId")
+    matched = None
+
+    if workspace_id and is_taskana():
+        # Taskana: server-side search
         import urllib.parse
         encoded = urllib.parse.quote(query)
-        search_url = f"/workspaces/{workspace_id}/tasks/search?text={encoded}&opt_fields=name,completed,memberships.section.name,assignee.name"
-        if is_taskana():
-            search_url += "&limit=100"
+        search_url = f"/workspaces/{workspace_id}/tasks/search?text={encoded}&opt_fields=name,completed,memberships.section.name,assignee.name&limit=100"
         matched = api("GET", search_url, token)
-    else:
-        # Fallback: client-side filter
-        project_id = config["projectId"]
+
+    if matched is None and project_id:
+        # Asana (no premium search) or no workspaceId: client-side filter
         fields = "name,completed,memberships.section.name,assignee.name"
         tasks = api("GET", f"/projects/{project_id}/tasks?opt_fields={fields}&limit={task_limit()}", token)
         lower = query.lower()
