@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.0 (2026-03-20)
+- New: `--project <gid>` global flag — override projectId to work with any project
+- Works with all commands and combines with `--target`
+
 ## 1.2.3 (2026-03-19)
 - Fix: `search` uses server-side API only for Taskana, client-side filter for Asana (no premium needed)
 

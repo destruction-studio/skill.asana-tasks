@@ -65,6 +65,7 @@ Usage:
 Global flags:
   --target <name>               Use specific target (from asana.json targets)
   --target all                  Execute on all targets (dual write)
+  --project <gid>               Override projectId (work with a different project)
 """
 
 import json
@@ -74,7 +75,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "1.2.3"
+VERSION = "1.3.0"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -1430,14 +1431,18 @@ def main():
 
     global ACTIVE_BASE_URL
 
-    # Extract --target flag before command parsing
+    # Extract global flags before command parsing
     target_name = None
+    project_override = None
     filtered_args = []
     i = 0
     while i < len(args):
         if args[i] == "--target":
             i += 1
             target_name = args[i] if i < len(args) else None
+        elif args[i] == "--project":
+            i += 1
+            project_override = args[i] if i < len(args) else None
         else:
             filtered_args.append(args[i])
         i += 1
@@ -1547,14 +1552,11 @@ def main():
             sys.exit(1)
         at_name = args[1]
         at_url = args[2]
-        at_project = None
+        at_project = project_override
         at_token = None
         i = 3
         while i < len(args):
-            if args[i] in ("--project", "-p"):
-                i += 1
-                at_project = args[i] if i < len(args) else None
-            elif args[i] in ("--token", "-t"):
+            if args[i] in ("--token", "-t"):
                 i += 1
                 at_token = args[i] if i < len(args) else None
             i += 1
@@ -1589,6 +1591,8 @@ def main():
 
     multi = len(targets) > 1
     for tgt_idx, (tgt_name, config) in enumerate(targets):
+        if project_override:
+            config = {**config, "projectId": project_override}
         ACTIVE_BASE_URL = config["baseUrl"]
         # Load per-target token
         tgt_token = load_token(tgt_name)

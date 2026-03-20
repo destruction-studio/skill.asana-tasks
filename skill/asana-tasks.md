@@ -236,6 +236,7 @@ Config supports multiple backends (e.g. Asana + Taskana):
 - Without `--target` → uses `default`
 - `--target taskana` → specific target
 - `--target all` → executes on all targets (dual write)
+- `--project <gid>` → override projectId (work with a different project)
 - Per-target tokens: `~/.config/asana/tokens/<name>`
 
 Legacy single-target config still works.
