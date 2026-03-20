@@ -52,6 +52,11 @@ Usage:
   asana-cli section-create <name>    Create section
   asana-cli section-rename <s> <new> Rename section
   asana-cli section-delete <section> Delete section
+  asana-cli estimate <id> <hours>    Set estimate (auto-creates field)
+  asana-cli custom-fields            List project custom fields
+  asana-cli custom-field-create <name> <type>  Create custom field
+  asana-cli task-fields <id>         List custom field values on task
+  asana-cli task-field-set <id> <field_id> <value>  Set custom field value
   asana-cli add-target <name> <url> [--project <gid>] [--token <tok>]  Add backend
   asana-cli set-target-project <target> <gid>         Set project for target
   asana-cli dismiss-multitarget   Don't ask about multi-target again
@@ -69,7 +74,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "1.2.1"
+VERSION = "1.2.2"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 

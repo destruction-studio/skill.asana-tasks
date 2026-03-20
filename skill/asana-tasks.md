@@ -142,6 +142,14 @@ Present the results and ask what to pick.
 asana-cli start <id>            # assigns to current user + moves to In Progress
 ```
 
+After starting, offer to set a time estimate:
+> "How long do you estimate this task will take? (e.g. 2, 0.5, 4)"
+
+If the developer gives an estimate:
+```bash
+asana-cli estimate <id> <hours>
+```
+
 ### When completing a task:
 
 ```bash
@@ -196,6 +204,11 @@ asana-cli history <id>          Show task activity
 asana-cli members               List project members
 asana-cli overview              Dashboard (my + review + todo + progress, 1 API call)
 asana-cli board                 Compact board view
+asana-cli estimate <id> <hours> Set estimate (auto-creates field)
+asana-cli custom-fields         List project custom fields
+asana-cli custom-field-create <name> <type>  Create custom field
+asana-cli task-fields <id>      List custom field values on task
+asana-cli task-field-set <id> <field_id> <value>  Set field value
 asana-cli users [ws_gid]        List workspace users
 asana-cli project-create <name> Create project (--workspace, --team)
 asana-cli section-create <name> Create new section

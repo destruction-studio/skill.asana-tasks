@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.2 (2026-03-19)
+- Skill: offer time estimate after `start`, add `estimate` to workflow
+- CLI help: add custom fields and estimate commands to usage text
+
 ## 1.2.1 (2026-03-18)
 - New: `estimate <task_id> <hours>` — set task estimate, auto-creates "Estimate" field if missing
 
