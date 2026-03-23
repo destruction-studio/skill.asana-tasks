@@ -8,59 +8,85 @@ Reads config from:
   3. ASANA_TOKEN env var       (fallback)
 
 Usage:
-  asana-cli auth                  Save personal access token
-  asana-cli init                  Initialize project (create .claude-team/asana.json)
-  asana-cli list [section]        List tasks (filter by section)
-  asana-cli show <id>             Task details
-  asana-cli done <id>             Mark completed + move to Done
-  asana-cli start <id>            Move to In Progress + assign to me
-  asana-cli move <id> <section>   Move to section
-  asana-cli create <name> [opts]  Create task
-  asana-cli sections              List sections
-  asana-cli search <query>        Search by name
-  asana-cli my                    My assigned tasks
-  asana-cli whoami                Show current user
-  asana-cli workspaces            List available workspaces
-  asana-cli projects [ws_gid]     List projects in workspace
-  asana-cli status                Check configuration status
-  asana-cli assign <id> <user>    Assign task (use "me" for self)
-  asana-cli unassign <id>         Remove assignee
-  asana-cli watch <id> [user]     Add follower/watcher ("me" default)
-  asana-cli unwatch <id> [user]   Remove follower/watcher
-  asana-cli due <id> <date>       Set due date (YYYY-MM-DD or "clear")
-  asana-cli comment <id> <text> [--pin]  Add comment (--pin to pin)
-  asana-cli subtasks <id>         List subtasks
-  asana-cli subtask <id> <name>   Create subtask
-  asana-cli tags <id>             List tags on task
-  asana-cli tag <id> <name>       Add tag (creates if not found)
-  asana-cli untag <id> <name>     Remove tag
-  asana-cli deps <id>             List dependencies (blocked by)
-  asana-cli dep <id> <dep_id>     Add dependency (blocked by)
-  asana-cli undep <id> <dep_id>   Remove dependency
-  asana-cli blocks <id>           List dependents (blocking)
-  asana-cli block <id> <dep_id>   Add dependent (this blocks dep_id)
-  asana-cli unblock <id> <dep_id> Remove dependent
-  asana-cli rename <id> <name>    Rename task
-  asana-cli reopen <id>           Reopen completed task
-  asana-cli description <id> <text>  Update task description
-  asana-cli history <id>          Show task activity
-  asana-cli members               List project members
-  asana-cli board                 Compact board view
-  asana-cli overview                  Dashboard: my + todo + review (1 API call)
-  asana-cli users                    List workspace users
-  asana-cli project-create <name>    Create project in workspace
-  asana-cli section-create <name>    Create section
-  asana-cli section-rename <s> <new> Rename section
-  asana-cli section-delete <section> Delete section
-  asana-cli estimate <id> <hours>    Set estimate (auto-creates field)
-  asana-cli custom-fields            List project custom fields
-  asana-cli custom-field-create <name> <type>  Create custom field
-  asana-cli task-fields <id>         List custom field values on task
-  asana-cli task-field-set <id> <field_id> <value>  Set custom field value
-  asana-cli add-target <name> <url> [--project <gid>] [--token <tok>]  Add backend
-  asana-cli set-target-project <target> <gid>         Set project for target
-  asana-cli dismiss-multitarget   Don't ask about multi-target again
-  asana-cli update                Update CLI + skill
+
+  Setup:
+    asana-cli auth <token> [--target <name>]   Save token (per-target with --target)
+    asana-cli init                             List workspaces & projects for init
+    asana-cli init-write <ws_gid> <proj_gid>   Write .claude-team/asana.json
+    asana-cli status                           Check configuration status
+    asana-cli update                           Update CLI + skill from GitHub
+    asana-cli whoami                           Show current user
+    asana-cli workspaces                       List available workspaces
+    asana-cli projects [ws_gid]                List projects in workspace
+    asana-cli users [ws_gid]                   List workspace users
+
+  Tasks:
+    asana-cli list [section]                   List tasks (optionally filter by section name)
+    asana-cli show <id>                        Task details (notes, deps, tags, dates)
+    asana-cli my                               My assigned tasks
+    asana-cli search <query>                   Search tasks by name
+    asana-cli overview                         Dashboard: my + todo + review + in progress
+    asana-cli board                            Compact board view (grouped by section)
+    asana-cli create <name> [options]          Create task
+        --section <name>                         Place in section (default: Backlog)
+        --notes <text>                           Task description
+        --due <YYYY-MM-DD>                       Due date
+        --assign <user>                          Assign ("me", name, or email)
+        --watch <user>                           Add watcher (repeatable)
+    asana-cli done <id>                        Mark completed + move to Done
+    asana-cli start <id>                       Assign to me + move to In Progress
+    asana-cli move <id> <section>              Move task to section
+    asana-cli assign <id> <user>               Assign ("me", name, or email)
+    asana-cli unassign <id>                    Remove assignee
+    asana-cli due <id> <date>                  Set due date (YYYY-MM-DD or "clear")
+    asana-cli rename <id> <name>               Rename task
+    asana-cli reopen <id>                      Reopen completed task
+    asana-cli description <id> <text>          Update description (markdown → rich text)
+    asana-cli comment <id> <text> [--pin]      Add comment (--pin to pin it)
+    asana-cli history <id>                     Show task activity log
+
+  Subtasks:
+    asana-cli subtasks <id>                    List subtasks
+    asana-cli subtask <id> <name>              Create subtask
+
+  Watchers:
+    asana-cli watch <id> [user]                Add watcher ("me" by default)
+    asana-cli unwatch <id> [user]              Remove watcher
+
+  Tags:
+    asana-cli tags <id>                        List tags on task
+    asana-cli tag <id> <name>                  Add tag (creates if not found)
+    asana-cli untag <id> <name>                Remove tag
+
+  Dependencies:
+    asana-cli deps <id>                        List dependencies (blocked by)
+    asana-cli dep <id> <dep_id>                Add dependency
+    asana-cli undep <id> <dep_id>              Remove dependency
+    asana-cli blocks <id>                      List dependents (blocking)
+    asana-cli block <id> <dep_id>              Add dependent
+    asana-cli unblock <id> <dep_id>            Remove dependent
+
+  Custom fields:
+    asana-cli custom-fields                    List project custom fields
+    asana-cli custom-field-create <name> <type>  Create field (text, number, enum, date)
+    asana-cli task-fields <id>                 List custom field values on task
+    asana-cli task-field-set <id> <fld> <val>  Set custom field value
+    asana-cli estimate <id> <hours>            Set estimate (auto-creates field if missing)
+
+  Sections:
+    asana-cli sections                         List sections
+    asana-cli section-create <name>            Create section
+    asana-cli section-rename <old> <new>       Rename section
+    asana-cli section-delete <name>            Delete section
+
+  Project:
+    asana-cli members                          List project members
+    asana-cli project-create <name> [--workspace <gid>] [--team <gid>]
+
+  Multi-target:
+    asana-cli add-target <name> <url> [--project <gid>] [--token <tok>]
+    asana-cli set-target-project <target> <gid>
+    asana-cli dismiss-multitarget              Don't ask about multi-target again
 
 Global flags:
   --target <name>               Use specific target (from asana.json targets)
@@ -75,7 +101,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "1.3.0"
+VERSION = "1.3.1"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 

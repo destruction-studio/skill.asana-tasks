@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.1 (2026-03-23)
+- Help: full rewrite — grouped by category, all options documented (create --section/--notes/--due/--assign/--watch, comment --pin, auth --target, project-create --workspace/--team)
+- Skill: CLI reference updated to match
+
 ## 1.3.0 (2026-03-20)
 - New: `--project <gid>` global flag — override projectId to work with any project
 - Works with all commands and combines with `--target`
