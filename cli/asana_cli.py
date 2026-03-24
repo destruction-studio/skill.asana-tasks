@@ -43,7 +43,8 @@ Usage:
     asana-cli reopen <id>                      Reopen completed task
     asana-cli description <id> <text>          Update description (markdown → rich text)
     asana-cli comment <id> <text> [--pin]      Add comment (--pin to pin it)
-    asana-cli history <id>                     Show task activity log
+    asana-cli comments <id>                    List comments on task
+    asana-cli history <id>                     Show task activity log (all events)
 
   Subtasks:
     asana-cli subtasks <id>                    List subtasks
@@ -101,7 +102,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "1.3.1"
+VERSION = "1.3.2"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -1123,6 +1124,28 @@ def cmd_history(token, task_id):
         print(f"  {date}  {who}: {text}")
 
 
+def cmd_comments(token, task_id):
+    """List comments on a task (excluding system activity)."""
+    stories = api("GET",
+                   f"/tasks/{task_id}/stories?opt_fields=created_by.name,created_at,text,type,resource_subtype,is_pinned",
+                   token)
+    if not stories:
+        print("No comments")
+        return
+    comments = [s for s in stories if s.get("type") == "comment" or s.get("resource_subtype") == "comment_added"]
+    if not comments:
+        print("No comments")
+        return
+    for c in comments:
+        date = (c.get("created_at") or "")[:16].replace("T", " ")
+        who = c.get("created_by", {}).get("name", "?")
+        pinned = " [pinned]" if c.get("is_pinned") else ""
+        print(f"── {who}  {date}{pinned} ──")
+        print(c.get("text") or "(empty)")
+        print()
+    print(f"Total: {len(comments)} comments")
+
+
 def cmd_members(token, config):
     project_id = config["projectId"]
     members = api("GET",
@@ -1608,7 +1631,7 @@ def main():
                        "watch", "unwatch", "due", "comment", "subtasks", "subtask",
                        "tags", "tag", "untag", "deps", "dep", "undep",
                        "blocks", "block", "unblock", "rename", "reopen",
-                       "description", "history", "task-fields", "task-field-set",
+                       "description", "history", "comments", "task-fields", "task-field-set",
                        "estimate"}
         if args[0] in id_commands:
             print(f"ERROR: '--target all' cannot be used with '{args[0]}' — task IDs differ between backends.", file=sys.stderr)
@@ -1845,6 +1868,11 @@ def _run_command(cmd, args, token, config):
             print("Usage: asana-cli history <task_id>", file=sys.stderr)
             sys.exit(1)
         cmd_history(token, args[1])
+    elif cmd == "comments":
+        if len(args) < 2:
+            print("Usage: asana-cli comments <task_id>", file=sys.stderr)
+            sys.exit(1)
+        cmd_comments(token, args[1])
     elif cmd == "overview":
         cmd_overview(token, config)
     elif cmd == "members":

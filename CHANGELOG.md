@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3.2 (2026-03-24)
+- New: `comments <task_id>` — list comments with full text (excludes system activity)
+
 ## 1.3.1 (2026-03-23)
 - Help: full rewrite — grouped by category, all options documented (create --section/--notes/--due/--assign/--watch, comment --pin, auth --target, project-create --workspace/--team)
 - Skill: CLI reference updated to match

@@ -201,7 +201,8 @@ Tasks:
   asana-cli reopen <id>                      Reopen completed task
   asana-cli description <id> <text>          Update description (markdown → rich text)
   asana-cli comment <id> <text> [--pin]      Add comment (--pin to pin)
-  asana-cli history <id>                     Task activity log
+  asana-cli comments <id>                    List comments on task
+  asana-cli history <id>                     Full activity log (all events)
 
 Subtasks:
   asana-cli subtasks <id>                    List subtasks
