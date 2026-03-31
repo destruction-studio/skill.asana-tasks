@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3.3 (2026-03-31)
+- Fix: handle network errors (connection reset, timeout, DNS) with clean messages instead of raw tracebacks
+
 ## 1.3.2 (2026-03-24)
 - New: `comments <task_id>` — list comments with full text (excludes system activity)
 

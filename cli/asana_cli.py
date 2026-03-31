@@ -102,7 +102,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "1.3.2"
+VERSION = "1.3.3"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 
@@ -242,6 +242,12 @@ def api(method, path, token, body=None, base_url=None):
         except (json.JSONDecodeError, IndexError, KeyError):
             msg = error_body
         print(f"API Error ({e.code}): {msg}", file=sys.stderr)
+        sys.exit(1)
+    except urllib.error.URLError as e:
+        print(f"Network Error: {e.reason}", file=sys.stderr)
+        sys.exit(1)
+    except (ConnectionError, OSError) as e:
+        print(f"Connection Error: {e}", file=sys.stderr)
         sys.exit(1)
 
 
