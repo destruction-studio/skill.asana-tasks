@@ -43,9 +43,14 @@ If `.claude-team/asana.json` does not exist → **Init flow**.
 
 **IMPORTANT: You MUST complete ALL steps below before moving to work mode. Do NOT skip ahead to listing tasks.**
 
-**Step 3a.** Run `asana-cli init` — lists available workspaces and projects.
+**Step 3a.** Run `asana-cli workspaces` — list available workspaces.
 
-**Step 3b.** Present projects as a numbered list. Ask the user to pick a project by number.
+- If exactly **one** workspace → use it automatically, proceed to 3b.
+- If **multiple** → present as numbered list, ask user to pick one.
+
+**Step 3b.** Run `asana-cli projects <workspace_gid>` — list projects in the chosen workspace.
+
+Present projects as a numbered list. Ask the user to pick a project by number.
 
 **Step 3c.** Run `asana-cli init-write <workspace_gid> <project_gid>` — creates `.claude-team/asana.json`.
 

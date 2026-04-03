@@ -102,7 +102,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-VERSION = "1.3.3"
+VERSION = "1.3.4"
 DEFAULT_BASE_URL = "https://app.asana.com/api/1.0"
 
 

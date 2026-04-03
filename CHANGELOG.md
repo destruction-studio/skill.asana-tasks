@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3.4 (2026-04-03)
+- Skill: init flow now lists workspaces first, auto-selects if one, asks to choose if multiple
+
 ## 1.3.3 (2026-03-31)
 - Fix: handle network errors (connection reset, timeout, DNS) with clean messages instead of raw tracebacks
 
