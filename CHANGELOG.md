@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.0 (2026-04-09)
+- New: `attachments <task_id>` — list attachments on a task (name, size, date)
+- New: `download <attachment_id>` — download attachment to current directory (`--output` for custom path)
+- New: `upload <task_id> <file_path>` — upload file as attachment (multipart/form-data)
+
 ## 1.3.4 (2026-04-03)
 - Skill: init flow now lists workspaces first, auto-selects if one, asks to choose if multiple
 
